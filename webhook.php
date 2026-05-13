@@ -55,13 +55,16 @@ if ($message) {
             $caption = $message['image']['caption'] ?? "Analiza esta imagen y responde al usuario";
             $tmpFile = downloadMetaMedia($mediaId);
             if ($tmpFile) {
+                logger("Procesando imagen descargada: Obteniendo historial...");
                 // Obtenemos historial previo
                 $stmt = $pdo->prepare("SELECT role, content FROM messages WHERE wa_id = ? ORDER BY created_at DESC LIMIT 5");
                 $stmt->execute([$wa_id]);
                 $history = array_reverse($stmt->fetchAll());
                 
+                logger("Historial obtenido. Llamando a analyzeImage...");
                 // El modelo de visión genera la respuesta FINAL directamente
                 $reply = analyzeImage($tmpFile, $caption, $history);
+                logger("Respuesta de visión obtenida.");
                 $text = "[Imagen]: " . $caption; // Texto que guardaremos en DB
                 @unlink($tmpFile);
             } else {
