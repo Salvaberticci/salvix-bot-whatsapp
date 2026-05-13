@@ -10,7 +10,7 @@ if (isset($_GET['logout'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
-    if ($_POST['username'] === getenv('ADMIN_USER') && $_POST['password'] === getenv('ADMIN_PASSWORD')) {
+    if ($_POST['username'] === ($_ENV['ADMIN_USER'] ?? getenv('ADMIN_USER')) && $_POST['password'] === ($_ENV['ADMIN_PASSWORD'] ?? getenv('ADMIN_PASSWORD'))) {
         $_SESSION['admin'] = true;
     } else {
         $error = "Credenciales incorrectas";
@@ -213,18 +213,18 @@ $threads = $pdo->query("SELECT wa_id, MAX(created_at) as last_msg FROM messages 
                 <?php if(isset($success_msg)) echo "<p style='color:green'>$success_msg</p>"; ?>
                 <form method="POST">
                     <label class="label">WhatsApp API Token</label>
-                    <input type="text" name="wa_token" value="<?php echo htmlspecialchars(getenv('WHATSAPP_API_TOKEN')); ?>" style="width:100%; padding:10px; margin-bottom:15px; border-radius:6px; border:1px solid #ddd;">
+                    <input type="text" name="wa_token" value="<?php echo htmlspecialchars($_ENV['WHATSAPP_API_TOKEN'] ?? getenv('WHATSAPP_API_TOKEN')); ?>" style="width:100%; padding:10px; margin-bottom:15px; border-radius:6px; border:1px solid #ddd;">
                     
                     <label class="label">WhatsApp Phone Number ID</label>
-                    <input type="text" name="wa_phone_id" value="<?php echo htmlspecialchars(getenv('WHATSAPP_PHONE_NUMBER_ID')); ?>" style="width:100%; padding:10px; margin-bottom:15px; border-radius:6px; border:1px solid #ddd;">
+                    <input type="text" name="wa_phone_id" value="<?php echo htmlspecialchars($_ENV['WHATSAPP_PHONE_NUMBER_ID'] ?? getenv('WHATSAPP_PHONE_NUMBER_ID')); ?>" style="width:100%; padding:10px; margin-bottom:15px; border-radius:6px; border:1px solid #ddd;">
                     
                     <hr style="border:0; border-top:1px solid #eee; margin:20px 0;">
                     
                     <label class="label">Groq API Key (gs_...)</label>
-                    <input type="text" name="groq_key" value="<?php echo htmlspecialchars(getenv('OPENAI_API_KEY')); ?>" style="width:100%; padding:10px; margin-bottom:15px; border-radius:6px; border:1px solid #ddd;">
+                    <input type="text" name="groq_key" value="<?php echo htmlspecialchars($_ENV['OPENAI_API_KEY'] ?? getenv('OPENAI_API_KEY')); ?>" style="width:100%; padding:10px; margin-bottom:15px; border-radius:6px; border:1px solid #ddd;">
                     
                     <label class="label">Modelo de Texto Principal</label>
-                    <input type="text" name="text_model" value="<?php echo htmlspecialchars(getenv('OPENAI_MODEL')); ?>" style="width:100%; padding:10px; margin-bottom:15px; border-radius:6px; border:1px solid #ddd;">
+                    <input type="text" name="text_model" value="<?php echo htmlspecialchars($_ENV['OPENAI_MODEL'] ?? getenv('OPENAI_MODEL')); ?>" style="width:100%; padding:10px; margin-bottom:15px; border-radius:6px; border:1px solid #ddd;">
 
                     <div style="margin-top:15px">
                         <button type="submit" name="save_api" class="btn">Guardar Credenciales</button>
