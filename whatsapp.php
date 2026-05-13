@@ -49,13 +49,12 @@ function downloadMetaMedia($mediaId) {
     
     if (!$downloadUrl) return null;
 
-    // 2. Descargar el archivo binario
+    // 2. Descargar el archivo binario (Meta prohíbe el header Authorization aquí)
     $ch = curl_init($downloadUrl);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Authorization: Bearer ' . WA_TOKEN,
-        'User-Agent: curl/7.64.1'
+        'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     ]);
     $binary = curl_exec($ch);
     curl_close($ch);
