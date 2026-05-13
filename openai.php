@@ -107,7 +107,7 @@ function analyzeImage($filePath, $userText = "Describe esta imagen", $history = 
     ];
 
     $payload = [
-        'model' => 'llama-3.2-90b-vision', // Actualizado a nombre de producción
+        'model' => 'llama-3.2-90b-vision',
         'messages' => $messages,
         'temperature' => 0.7
     ];
