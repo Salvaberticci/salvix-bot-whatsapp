@@ -107,7 +107,7 @@ function analyzeImage($filePath, $userText = "Describe esta imagen", $history = 
     ];
 
     $payload = [
-        'model' => 'llama-3.2-90b-vision',
+        'model' => 'meta-llama/llama-4-scout-17b-16e-instruct',
         'messages' => $messages,
         'temperature' => 0.7
     ];
