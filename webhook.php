@@ -52,12 +52,17 @@ if ($message) {
         } 
         elseif ($type === 'image') {
             $mediaId = $message['image']['id'];
-            $caption = $message['image']['caption'] ?? "Analiza esta imagen detalladamente";
+            $caption = $message['image']['caption'] ?? "Analiza esta imagen y responde al usuario";
             $tmpFile = downloadMetaMedia($mediaId);
             if ($tmpFile) {
-                $visionAnalysis = analyzeImage($tmpFile, $caption);
-                // Le damos un contexto muy claro a la IA principal
-                $text = "CONTEXTO VISUAL: El usuario ha enviado una foto. El sistema de visión describe lo siguiente: \"$visionAnalysis\". Responde al usuario basándote en esta descripción y su comentario: \"$caption\"";
+                // Obtenemos historial previo
+                $stmt = $pdo->prepare("SELECT role, content FROM messages WHERE wa_id = ? ORDER BY created_at DESC LIMIT 5");
+                $stmt->execute([$wa_id]);
+                $history = array_reverse($stmt->fetchAll());
+                
+                // El modelo de visión genera la respuesta FINAL directamente
+                $reply = analyzeImage($tmpFile, $caption, $history);
+                $text = "[Imagen]: " . $caption; // Texto que guardaremos en DB
                 @unlink($tmpFile);
             }
         } 
@@ -78,15 +83,17 @@ if ($message) {
         $stmt = $pdo->prepare("INSERT INTO messages (wa_id, role, content, message_id) VALUES (?, 'user', ?, ?)");
         $stmt->execute([$wa_id, $text, $msg_id]);
 
-        // 2. Obtener historial
-        $stmt = $pdo->prepare("SELECT role, content FROM messages WHERE wa_id = ? ORDER BY created_at DESC LIMIT 10");
-        $stmt->execute([$wa_id]);
-        $history = array_reverse($stmt->fetchAll());
+        // 2. Generar respuesta (Groq) - Solo si no se generó ya por visión o audio
+        if (!isset($reply) || empty($reply)) {
+            // Obtener historial
+            $stmt = $pdo->prepare("SELECT role, content FROM messages WHERE wa_id = ? ORDER BY created_at DESC LIMIT 10");
+            $stmt->execute([$wa_id]);
+            $history = array_reverse($stmt->fetchAll());
+            
+            $reply = completeChat($text, $history);
+        }
 
-        // 3. Generar respuesta (Groq)
-        $reply = completeChat($text, $history);
-
-        // 4. Procesar Leads y limpiar
+        // 3. Procesar Leads y limpiar
         processLeads($wa_id, $reply, $history);
         $cleanReply = cleanReply($reply);
 

@@ -80,25 +80,36 @@ function transcribeAudio($filePath) {
 }
 
 /**
- * Analiza una imagen usando Groq Vision
+ * Responde a una conversación que incluye una imagen (Multimodal)
  */
-function analyzeImage($filePath, $userText = "Describe esta imagen") {
+function analyzeImage($filePath, $userText = "Describe esta imagen", $history = []) {
     $url = 'https://api.groq.com/openai/v1/chat/completions';
     
     $imageData = base64_encode(file_get_contents($filePath));
-    $mimeType = 'image/jpeg'; // Simplificado
+    $mimeType = 'image/jpeg';
     
+    // Leer el prompt del sistema para que el modelo de visión siga las reglas de Salvix
+    $systemPrompt = @file_get_contents(__DIR__ . '/prompts/system.md') ?: "Eres un asistente de ventas útil.";
+    
+    $messages = [];
+    $messages[] = ['role' => 'system', 'content' => $systemPrompt];
+    
+    foreach ($history as $msg) {
+        $messages[] = ['role' => $msg['role'], 'content' => $msg['content']];
+    }
+    
+    $messages[] = [
+        'role' => 'user',
+        'content' => [
+            ['type' => 'text', 'text' => $userText],
+            ['type' => 'image_url', 'image_url' => ['url' => "data:$mimeType;base64,$imageData"]]
+        ]
+    ];
+
     $payload = [
         'model' => 'llama-3.2-90b-vision-preview',
-        'messages' => [
-            [
-                'role' => 'user',
-                'content' => [
-                    ['type' => 'text', 'text' => $userText],
-                    ['type' => 'image_url', 'image_url' => ['url' => "data:$mimeType;base64,$imageData"]]
-                ]
-            ]
-        ]
+        'messages' => $messages,
+        'temperature' => 0.7
     ];
 
     $ch = curl_init($url);
@@ -114,5 +125,5 @@ function analyzeImage($filePath, $userText = "Describe esta imagen") {
     curl_close($ch);
     
     $data = json_decode($response, true);
-    return $data['choices'][0]['message']['content'] ?? "No pude analizar la imagen.";
+    return $data['choices'][0]['message']['content'] ?? "Lo siento, pude ver la imagen pero no logré procesar una respuesta.";
 }
