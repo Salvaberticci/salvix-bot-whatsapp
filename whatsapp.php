@@ -52,11 +52,12 @@ function downloadMetaMedia($mediaId) {
         return null;
     }
 
-    // 2. Descargar el archivo binario
+    // 2. Descargar el archivo binario (Restaurando Authorization para evitar 401)
     $ch = curl_init($downloadUrl);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Authorization: Bearer ' . WA_TOKEN,
         'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     ]);
     $binary = curl_exec($ch);
