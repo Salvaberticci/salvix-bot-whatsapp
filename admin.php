@@ -52,6 +52,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_config'])) {
     $success_msg = "Instrucciones actualizadas con éxito.";
 }
 
+// 2.1 Lógica de Guardado de APIs (.env)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_api'])) {
+    $envPath = __DIR__ . '/.env';
+    $envContent = file_get_contents($envPath);
+    
+    $keysToUpdate = [
+        'WHATSAPP_API_TOKEN' => $_POST['wa_token'],
+        'WHATSAPP_PHONE_NUMBER_ID' => $_POST['wa_phone_id'],
+        'OPENAI_API_KEY' => $_POST['groq_key'],
+        'OPENAI_MODEL' => $_POST['text_model']
+    ];
+
+    foreach ($keysToUpdate as $key => $value) {
+        $pattern = "/^" . preg_quote($key) . "=.*/m";
+        $replacement = $key . "=" . $value;
+        if (preg_match($pattern, $envContent)) {
+            $envContent = preg_replace($pattern, $replacement, $envContent);
+        } else {
+            $envContent .= "\n" . $replacement;
+        }
+    }
+    
+    file_put_contents($envPath, $envContent);
+    $success_msg = "Credenciales de API actualizadas.";
+}
+
 // 3. Lógica del Dashboard
 $pdo = getDB();
 $prompt_content = @file_get_contents(__DIR__ . '/prompts/system.md') ?: "";
@@ -96,7 +122,8 @@ $threads = $pdo->query("SELECT wa_id, MAX(created_at) as last_msg FROM messages 
         <hr>
         <nav>
             <p><a href="admin.php" style="color:var(--ink); text-decoration:none; font-weight:bold;">📊 Dashboard</a></p>
-            <p><a href="?view=config" style="color:var(--ink); text-decoration:none;">⚙️ Configuración</a></p>
+            <p><a href="?view=config" style="color:var(--ink); text-decoration:none;">⚙️ Configuración (Bot)</a></p>
+            <p><a href="?view=api" style="color:var(--ink); text-decoration:none;">🔑 APIs y Tokens</a></p>
             <p><a href="health.php" target="_blank" style="color:var(--muted); text-decoration:none;">🏥 Estado Salud</a></p>
             <hr>
             <p><a href="?logout=1" style="color:red; text-decoration:none;">🚪 Salir</a></p>
@@ -113,6 +140,32 @@ $threads = $pdo->query("SELECT wa_id, MAX(created_at) as last_msg FROM messages 
                     <textarea name="system_prompt" rows="15"><?php echo htmlspecialchars($prompt_content); ?></textarea>
                     <div style="margin-top:15px">
                         <button type="submit" name="save_config" class="btn">Guardar Instrucciones</button>
+                    </div>
+                </form>
+            </div>
+        <?php elseif (isset($_GET['view']) && $_GET['view'] === 'api'): ?>
+            <h1>🔑 APIs y Credenciales</h1>
+            <div class="card">
+                <h3>Tokens de Conexión</h3>
+                <p class="label">Configura las llaves maestras de WhatsApp y Groq.</p>
+                <?php if(isset($success_msg)) echo "<p style='color:green'>$success_msg</p>"; ?>
+                <form method="POST">
+                    <label class="label">WhatsApp API Token</label>
+                    <input type="text" name="wa_token" value="<?php echo htmlspecialchars(getenv('WHATSAPP_API_TOKEN')); ?>" style="width:100%; padding:10px; margin-bottom:15px; border-radius:6px; border:1px solid #ddd;">
+                    
+                    <label class="label">WhatsApp Phone Number ID</label>
+                    <input type="text" name="wa_phone_id" value="<?php echo htmlspecialchars(getenv('WHATSAPP_PHONE_NUMBER_ID')); ?>" style="width:100%; padding:10px; margin-bottom:15px; border-radius:6px; border:1px solid #ddd;">
+                    
+                    <hr style="border:0; border-top:1px solid #eee; margin:20px 0;">
+                    
+                    <label class="label">Groq API Key (gs_...)</label>
+                    <input type="text" name="groq_key" value="<?php echo htmlspecialchars(getenv('OPENAI_API_KEY')); ?>" style="width:100%; padding:10px; margin-bottom:15px; border-radius:6px; border:1px solid #ddd;">
+                    
+                    <label class="label">Modelo de Texto Principal</label>
+                    <input type="text" name="text_model" value="<?php echo htmlspecialchars(getenv('OPENAI_MODEL')); ?>" style="width:100%; padding:10px; margin-bottom:15px; border-radius:6px; border:1px solid #ddd;">
+
+                    <div style="margin-top:15px">
+                        <button type="submit" name="save_api" class="btn">Guardar Credenciales</button>
                     </div>
                 </form>
             </div>
