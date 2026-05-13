@@ -45,8 +45,16 @@ if (!isset($_SESSION['admin'])) {
     exit;
 }
 
-// 2. Lógica del Dashboard
+// 2. Lógica de Guardado de Instrucciones
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_config'])) {
+    $newPrompt = $_POST['system_prompt'] ?? '';
+    file_put_contents(__DIR__ . '/prompts/system.md', $newPrompt);
+    $success_msg = "Instrucciones actualizadas con éxito.";
+}
+
+// 3. Lógica del Dashboard
 $pdo = getDB();
+$prompt_content = @file_get_contents(__DIR__ . '/prompts/system.md') ?: "";
 
 // Contar métricas
 $totalMsgs = $pdo->query("SELECT COUNT(*) FROM messages")->fetchColumn();
@@ -66,7 +74,7 @@ $threads = $pdo->query("SELECT wa_id, MAX(created_at) as last_msg FROM messages 
     <style>
         :root { --bg: #f4f5f2; --ink: #151716; --muted: #68706c; --primary: #176b5b; }
         body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--ink); display: flex; height: 100vh; }
-        aside { width: 240px; background: #fbfcfa; border-right: 1px solid #dde2dc; padding: 20px; }
+        aside { width: 240px; background: #fbfcfa; border-right: 1px solid #dde2dc; padding: 20px; box-sizing: border-box; }
         main { flex: 1; padding: 30px; overflow-y: auto; }
         .card { background: white; padding: 20px; border-radius: 8px; border: 1px solid #dde2dc; margin-bottom: 20px; }
         .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px; }
@@ -75,9 +83,10 @@ $threads = $pdo->query("SELECT wa_id, MAX(created_at) as last_msg FROM messages 
         table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; }
         th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
         th { background: #fafbf9; color: var(--muted); font-size: 12px; }
-        .btn { padding: 6px 12px; background: var(--ink); color: white; text-decoration: none; border-radius: 4px; font-size: 13px; }
+        .btn { padding: 8px 16px; background: var(--ink); color: white; text-decoration: none; border-radius: 6px; font-size: 13px; border:none; cursor:pointer; }
+        .btn.secondary { background: #eee; color: var(--ink); }
         .badge { padding: 4px 8px; border-radius: 999px; font-size: 11px; font-weight: bold; background: #eee; }
-        .badge-cal { background: #dff4e8; color: #17643e; }
+        textarea { width: 100%; border: 1px solid #ddd; border-radius: 8px; padding: 15px; font-family: monospace; font-size: 14px; box-sizing: border-box; }
     </style>
 </head>
 <body>
@@ -86,54 +95,75 @@ $threads = $pdo->query("SELECT wa_id, MAX(created_at) as last_msg FROM messages 
         <p class="label">Panel PHP</p>
         <hr>
         <nav>
-            <p><a href="admin.php" style="color:var(--ink); text-decoration:none; font-weight:bold;">Dashboard</a></p>
-            <p><a href="health.php" target="_blank" style="color:var(--muted); text-decoration:none;">Estado Salud</a></p>
-            <p><a href="?logout=1" style="color:red; text-decoration:none;">Salir</a></p>
+            <p><a href="admin.php" style="color:var(--ink); text-decoration:none; font-weight:bold;">📊 Dashboard</a></p>
+            <p><a href="?view=config" style="color:var(--ink); text-decoration:none;">⚙️ Configuración</a></p>
+            <p><a href="health.php" target="_blank" style="color:var(--muted); text-decoration:none;">🏥 Estado Salud</a></p>
+            <hr>
+            <p><a href="?logout=1" style="color:red; text-decoration:none;">🚪 Salir</a></p>
         </nav>
     </aside>
     <main>
-        <h1>Dashboard</h1>
-        <div class="grid">
-            <div class="card"><div class="label">Mensajes</div><div class="kpi"><?php echo $totalMsgs; ?></div></div>
-            <div class="card"><div class="label">Leads Totales</div><div class="kpi"><?php echo $totalLeads; ?></div></div>
-            <div class="card"><div class="label">Calificados</div><div class="kpi" style="color:var(--primary)"><?php echo $qualifiedLeads; ?></div></div>
-        </div>
-
-        <div class="card">
-            <h3>Conversaciones Recientes</h3>
-            <table>
-                <thead>
-                    <tr><th>WA_ID</th><th>Última Actividad</th><th>Acción</th></tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($threads as $t): ?>
-                    <tr>
-                        <td><?php echo $t['wa_id']; ?></td>
-                        <td><?php echo $t['last_msg']; ?></td>
-                        <td><a href="?chat=<?php echo $t['wa_id']; ?>" class="btn">Ver Chat</a></td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-
-        <?php if (isset($_GET['chat'])): 
-            $chatId = $_GET['chat'];
-            $messages = $pdo->prepare("SELECT * FROM messages WHERE wa_id = ? ORDER BY created_at ASC LIMIT 50");
-            $messages->execute([$chatId]);
-            ?>
-            <div class="card" id="chat-view">
-                <h3>Chat con <?php echo htmlspecialchars($chatId); ?></h3>
-                <div style="height: 300px; overflow-y: scroll; background: #f9f9f9; padding: 15px; border-radius: 8px;">
-                    <?php foreach ($messages as $m): ?>
-                        <p style="margin: 5px 0; font-size: 14px;">
-                            <strong><?php echo $m['role'] === 'user' ? 'Cliente' : 'Bot'; ?>:</strong>
-                            <?php echo htmlspecialchars($m['content']); ?>
-                        </p>
-                    <?php endforeach; ?>
-                </div>
+        <?php if (isset($_GET['view']) && $_GET['view'] === 'config'): ?>
+            <h1>⚙️ Configuración del Bot</h1>
+            <div class="card">
+                <h3>Instrucciones del Sistema (Prompt)</h3>
+                <p class="label">Aquí defines cómo debe comportarse el bot, su personalidad y sus reglas.</p>
+                <?php if(isset($success_msg)) echo "<p style='color:green'>$success_msg</p>"; ?>
+                <form method="POST">
+                    <textarea name="system_prompt" rows="15"><?php echo htmlspecialchars($prompt_content); ?></textarea>
+                    <div style="margin-top:15px">
+                        <button type="submit" name="save_config" class="btn">Guardar Instrucciones</button>
+                    </div>
+                </form>
             </div>
+        <?php else: ?>
+            <h1>📊 Dashboard</h1>
+            <div class="grid">
+                <div class="card"><div class="label">Mensajes</div><div class="kpi"><?php echo $totalMsgs; ?></div></div>
+                <div class="card"><div class="label">Leads Totales</div><div class="kpi"><?php echo $totalLeads; ?></div></div>
+                <div class="card"><div class="label">Calificados</div><div class="kpi" style="color:var(--primary)"><?php echo $qualifiedLeads; ?></div></div>
+            </div>
+
+            <div class="card">
+                <h3>Conversaciones Recientes</h3>
+                <table>
+                    <thead>
+                        <tr><th>WA_ID</th><th>Última Actividad</th><th>Acción</th></tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($threads as $t): ?>
+                        <tr>
+                            <td><?php echo $t['wa_id']; ?></td>
+                            <td><?php echo $t['last_msg']; ?></td>
+                            <td><a href="?chat=<?php echo $t['wa_id']; ?>" class="btn secondary">Ver Chat</a></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+
+            <?php if (isset($_GET['chat'])): 
+                $chatId = $_GET['chat'];
+                $messages = $pdo->prepare("SELECT * FROM messages WHERE wa_id = ? ORDER BY created_at ASC LIMIT 50");
+                $messages->execute([$chatId]);
+                ?>
+                <div class="card" id="chat-view">
+                    <h3>Chat con <?php echo htmlspecialchars($chatId); ?></h3>
+                    <div style="height: 400px; overflow-y: scroll; background: #f9f9f9; padding: 15px; border-radius: 8px;">
+                        <?php foreach ($messages as $m): ?>
+                            <div style="margin-bottom: 15px; text-align: <?php echo $m['role'] === 'user' ? 'left' : 'right'; ?>">
+                                <div style="display: inline-block; padding: 10px; border-radius: 8px; background: <?php echo $m['role'] === 'user' ? '#eee' : '#176b5b'; ?>; color: <?php echo $m['role'] === 'user' ? '#000' : '#fff'; ?>; max-width: 80%;">
+                                    <?php echo nl2br(htmlspecialchars($m['content'])); ?>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
         <?php endif; ?>
+    </main>
+</body>
+</html>
     </main>
 </body>
 </html>
