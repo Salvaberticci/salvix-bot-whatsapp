@@ -8,6 +8,15 @@ require_once __DIR__ . '/leads.php';
  * Webhook principal para WhatsApp en PHP
  */
 
+// Cazador de errores fatales
+register_shutdown_function(function() {
+    $error = error_get_last();
+    if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        $date = date('Y-m-d H:i:s');
+        file_put_contents(__DIR__ . '/debug.log', "[$date] FATAL ERROR: {$error['message']} en {$error['file']}:{$error['line']}\n", FILE_APPEND);
+    }
+});
+
 // 1. Verificación del Webhook (Handshake de Meta)
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $mode = $_GET['hub_mode'] ?? '';
@@ -44,6 +53,8 @@ if ($message) {
     $msg_id = $message['id'];
     $type = $message['type'];
     $text = "";
+    $reply = null;
+    $history = [];
 
     try {
         $pdo = getDB();
