@@ -52,11 +52,13 @@ if ($message) {
         } 
         elseif ($type === 'image') {
             $mediaId = $message['image']['id'];
-            $caption = $message['image']['caption'] ?? "Describe esta imagen";
+            $caption = $message['image']['caption'] ?? "Analiza esta imagen detalladamente";
             $tmpFile = downloadMetaMedia($mediaId);
             if ($tmpFile) {
-                $text = "[Imagen recibida] " . analyzeImage($tmpFile, $caption);
-                @unlink($tmpFile); // Borrar temporal
+                $visionAnalysis = analyzeImage($tmpFile, $caption);
+                // Le damos un contexto muy claro a la IA principal
+                $text = "CONTEXTO VISUAL: El usuario ha enviado una foto. El sistema de visión describe lo siguiente: \"$visionAnalysis\". Responde al usuario basándote en esta descripción y su comentario: \"$caption\"";
+                @unlink($tmpFile);
             }
         } 
         elseif ($type === 'audio') {
