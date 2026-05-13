@@ -122,6 +122,8 @@ $threads = $pdo->query("SELECT wa_id, MAX(created_at) as last_msg FROM messages 
         <hr>
         <nav>
             <p><a href="admin.php" style="color:var(--ink); text-decoration:none; font-weight:bold;">📊 Dashboard</a></p>
+            <p><a href="?view=leads" style="color:var(--ink); text-decoration:none;">👥 Leads Calificados</a></p>
+            <p><a href="?view=logs" style="color:var(--ink); text-decoration:none;">📋 Logs de Sistema</a></p>
             <p><a href="?view=config" style="color:var(--ink); text-decoration:none;">⚙️ Configuración (Bot)</a></p>
             <p><a href="?view=api" style="color:var(--ink); text-decoration:none;">🔑 APIs y Tokens</a></p>
             <p><a href="health.php" target="_blank" style="color:var(--muted); text-decoration:none;">🏥 Estado Salud</a></p>
@@ -142,6 +144,61 @@ $threads = $pdo->query("SELECT wa_id, MAX(created_at) as last_msg FROM messages 
                         <button type="submit" name="save_config" class="btn">Guardar Instrucciones</button>
                     </div>
                 </form>
+                </form>
+            </div>
+        <?php elseif (isset($_GET['view']) && $_GET['view'] === 'logs'): 
+            $logs = @file_get_contents(__DIR__ . '/debug.log') ?: "No hay registros aún.";
+            $logLines = array_reverse(explode("\n", trim($logs)));
+            $lastLogs = array_slice($logLines, 0, 50);
+            ?>
+            <h1>📋 Logs de Sistema</h1>
+            <div class="card">
+                <h3>Últimos 50 eventos</h3>
+                <p class="label">Historial de depuración (Meta, Groq y errores).</p>
+                <div style="background:#1e1e1e; color:#d4d4d4; padding:15px; border-radius:8px; font-family:monospace; font-size:12px; height:500px; overflow-y:auto; line-height:1.6;">
+                    <?php foreach ($lastLogs as $line): 
+                        if (empty($line)) continue;
+                        $color = "#d4d4d4";
+                        if (strpos($line, 'ERROR') !== false) $color = "#f44336";
+                        if (strpos($line, 'ÉXITO') !== false) $color = "#4caf50";
+                        if (strpos($line, 'GROQ') !== false) $color = "#2196f3";
+                    ?>
+                        <div style="color:<?php echo $color; ?>; border-bottom:1px solid #333; padding:4px 0;">
+                            <?php echo htmlspecialchars($line); ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+                <div style="margin-top:15px">
+                    <a href="?view=logs" class="btn">Refrescar Logs</a>
+                </div>
+            </div>
+        <?php elseif (isset($_GET['view']) && $_GET['view'] === 'leads'): 
+            $allLeads = $pdo->query("SELECT * FROM leads ORDER BY created_at DESC")->fetchAll();
+            ?>
+            <h1>👥 Gestión de Leads</h1>
+            <div class="card">
+                <h3>Prospectos Detectados</h3>
+                <p class="label">Lista de usuarios calificados por la IA.</p>
+                <table>
+                    <thead>
+                        <tr><th>WhatsApp</th><th>Nombre</th><th>Negocio</th><th>Estado</th><th>Fecha</th></tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($allLeads as $l): ?>
+                        <tr>
+                            <td><?php echo $l['wa_id']; ?></td>
+                            <td><?php echo htmlspecialchars($l['nombre'] ?: 'N/A'); ?></td>
+                            <td><?php echo htmlspecialchars($l['negocio'] ?: 'N/A'); ?></td>
+                            <td>
+                                <span class="badge" style="background: <?php echo $l['qualification_status'] === 'calificado' ? '#d4edda' : '#fff3cd'; ?>; color: <?php echo $l['qualification_status'] === 'calificado' ? '#155724' : '#856404'; ?>">
+                                    <?php echo strtoupper($l['qualification_status']); ?>
+                                </span>
+                            </td>
+                            <td><?php echo $l['created_at']; ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
             </div>
         <?php elseif (isset($_GET['view']) && $_GET['view'] === 'api'): ?>
             <h1>🔑 APIs y Credenciales</h1>
@@ -178,13 +235,34 @@ $threads = $pdo->query("SELECT wa_id, MAX(created_at) as last_msg FROM messages 
             </div>
 
             <div class="card">
-                <h3>Conversaciones Recientes</h3>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h3>Conversaciones Recientes</h3>
+                    <form method="GET" style="display:flex; gap:10px;">
+                        <input type="text" name="search" placeholder="Buscar por ID..." value="<?php echo htmlspecialchars($_GET['search'] ?? ''); ?>" style="padding:6px; border:1px solid #ddd; border-radius:4px;">
+                        <button type="submit" class="btn">🔍</button>
+                    </form>
+                </div>
                 <table>
                     <thead>
                         <tr><th>WA_ID</th><th>Última Actividad</th><th>Acción</th></tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($threads as $t): ?>
+                        <?php 
+                        $search = $_GET['search'] ?? '';
+                        $query = "SELECT wa_id, MAX(created_at) as last_msg FROM messages ";
+                        if ($search) {
+                            $query .= " WHERE wa_id LIKE :search ";
+                        }
+                        $query .= " GROUP BY wa_id ORDER BY last_msg DESC LIMIT 50";
+                        
+                        $stmt = $pdo->prepare($query);
+                        if ($search) {
+                            $stmt->bindValue(':search', "%$search%");
+                        }
+                        $stmt->execute();
+                        $threads = $stmt->fetchAll();
+
+                        foreach ($threads as $t): ?>
                         <tr>
                             <td><?php echo $t['wa_id']; ?></td>
                             <td><?php echo $t['last_msg']; ?></td>
@@ -203,10 +281,24 @@ $threads = $pdo->query("SELECT wa_id, MAX(created_at) as last_msg FROM messages 
                 <div class="card" id="chat-view">
                     <h3>Chat con <?php echo htmlspecialchars($chatId); ?></h3>
                     <div style="height: 400px; overflow-y: scroll; background: #f9f9f9; padding: 15px; border-radius: 8px;">
-                        <?php foreach ($messages as $m): ?>
+                        <?php foreach ($messages as $m): 
+                            $isMedia = (strpos($m['content'], '[Imagen]') !== false || strpos($m['content'], '[Audio') !== false);
+                        ?>
                             <div style="margin-bottom: 15px; text-align: <?php echo $m['role'] === 'user' ? 'left' : 'right'; ?>">
-                                <div style="display: inline-block; padding: 10px; border-radius: 8px; background: <?php echo $m['role'] === 'user' ? '#eee' : '#176b5b'; ?>; color: <?php echo $m['role'] === 'user' ? '#000' : '#fff'; ?>; max-width: 80%;">
+                                <div style="display: inline-block; padding: 10px; border-radius: 8px; 
+                                    background: <?php echo $m['role'] === 'user' ? ($isMedia ? '#fff3cd' : '#eee') : '#176b5b'; ?>; 
+                                    color: <?php echo $m['role'] === 'user' ? '#000' : '#fff'; ?>; 
+                                    border: <?php echo $isMedia ? '1px solid #ffeeba' : 'none'; ?>;
+                                    max-width: 80%; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                                    
+                                    <?php if ($isMedia): ?>
+                                        <small style="display:block; margin-bottom:5px; opacity:0.7;">📎 Multimedia</small>
+                                    <?php endif; ?>
+
                                     <?php echo nl2br(htmlspecialchars($m['content'])); ?>
+                                </div>
+                                <div style="font-size:10px; color:var(--muted); margin-top:4px;">
+                                    <?php echo date('H:i', strtotime($m['created_at'])); ?>
                                 </div>
                             </div>
                         <?php endforeach; ?>
