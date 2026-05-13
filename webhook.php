@@ -37,39 +37,66 @@ $changes = $entry['changes'][0] ?? null;
 $value = $changes['value'] ?? null;
 $message = $value['messages'][0] ?? null;
 
-if ($message && isset($message['text']['body'])) {
+if ($message) {
     $wa_id = $message['from'];
-    $text = $message['text']['body'];
     $msg_id = $message['id'];
+    $type = $message['type'];
+    $text = "";
 
     try {
         $pdo = getDB();
 
-        // 1. Guardar mensaje del usuario en la base de datos
+        // A. PROCESAR SEGÚN EL TIPO DE MENSAJE
+        if ($type === 'text') {
+            $text = $message['text']['body'];
+        } 
+        elseif ($type === 'image') {
+            $mediaId = $message['image']['id'];
+            $caption = $message['image']['caption'] ?? "Describe esta imagen";
+            $tmpFile = downloadMetaMedia($mediaId);
+            if ($tmpFile) {
+                $text = "[Imagen recibida] " . analyzeImage($tmpFile, $caption);
+                @unlink($tmpFile); // Borrar temporal
+            }
+        } 
+        elseif ($type === 'audio') {
+            $mediaId = $message['audio']['id'];
+            $tmpFile = downloadMetaMedia($mediaId);
+            if ($tmpFile) {
+                $transcript = transcribeAudio($tmpFile);
+                $text = "[Audio transcrito]: " . ($transcript ?: "No se pudo entender el audio.");
+                @unlink($tmpFile); // Borrar temporal
+            }
+        }
+
+        if (!$text) exit;
+
+        // B. FLUJO NORMAL DE RESPUESTA
+        // 1. Guardar mensaje del usuario
         $stmt = $pdo->prepare("INSERT INTO messages (wa_id, role, content, message_id) VALUES (?, 'user', ?, ?)");
         $stmt->execute([$wa_id, $text, $msg_id]);
 
-        // 2. Obtener historial reciente para dar contexto a la IA
+        // 2. Obtener historial
         $stmt = $pdo->prepare("SELECT role, content FROM messages WHERE wa_id = ? ORDER BY created_at DESC LIMIT 10");
         $stmt->execute([$wa_id]);
         $history = array_reverse($stmt->fetchAll());
 
-        // 3. Generar respuesta con Groq
+        // 3. Generar respuesta (Groq)
         $reply = completeChat($text, $history);
 
-        // 4. Procesar Leads y limpiar marcadores
+        // 4. Procesar Leads y limpiar
         processLeads($wa_id, $reply, $history);
         $cleanReply = cleanReply($reply);
 
-        // 5. Enviar respuesta limpia por WhatsApp
+        // 5. Enviar a WhatsApp
         sendWhatsAppText($wa_id, $cleanReply);
 
-        // 6. Guardar respuesta del bot en la base de datos
+        // 6. Guardar respuesta del bot
         $stmt = $pdo->prepare("INSERT INTO messages (wa_id, role, content) VALUES (?, 'assistant', ?)");
         $stmt->execute([$wa_id, $cleanReply]);
 
     } catch (Exception $e) {
-        error_log("Error en Webhook: " . $e->getMessage());
+        error_log("Error en Webhook Multimedia: " . $e->getMessage());
     }
 }
 
