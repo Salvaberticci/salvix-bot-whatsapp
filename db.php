@@ -2,28 +2,24 @@
 require_once __DIR__ . '/config.php';
 
 /**
- * Conexión a PostgreSQL en Render usando PDO
+ * Conexión a MySQL local de Namecheap usando PDO
  */
 
 function getDB() {
     static $pdo = null;
     if ($pdo !== null) return $pdo;
 
-    $url = DB_URL;
-    if (!$url) {
-        die("Error: DATABASE_URL no configurada en el .env");
+    // Cargamos los datos del .env (usaremos variables específicas para MySQL ahora)
+    $host = getenv('DB_HOST') ?: 'localhost';
+    $dbname = getenv('DB_NAME');
+    $user = getenv('DB_USER');
+    $pass = getenv('DB_PASS');
+
+    if (!$dbname || !$user) {
+        die("Error: Configuración de MySQL incompleta en el .env (DB_NAME, DB_USER, DB_PASS)");
     }
 
-    // Parsear la URL de Postgres (postgresql://user:pass@host:port/dbname)
-    $db_parts = parse_url($url);
-    
-    $host = $db_parts['host'];
-    $port = $db_parts['port'] ?? 5432;
-    $user = $db_parts['user'];
-    $pass = $db_parts['pass'];
-    $dbname = ltrim($db_parts['path'], '/');
-
-    $dsn = "pgsql:host=$host;port=$port;dbname=$dbname;sslmode=require";
+    $dsn = "mysql:host=$host;dbname=$dbname;charset=utf8mb4";
 
     try {
         $pdo = new PDO($dsn, $user, $pass, [
@@ -32,6 +28,6 @@ function getDB() {
         ]);
         return $pdo;
     } catch (PDOException $e) {
-        die("Error de conexión a la base de datos: " . $e->getMessage());
+        die("Error de conexión a MySQL: " . $e->getMessage());
     }
 }
