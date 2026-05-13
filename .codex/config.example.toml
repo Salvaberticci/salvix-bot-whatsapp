@@ -1,0 +1,10 @@
+# Copy these blocks into your Codex config TOML and replace placeholders locally.
+# Do not commit a real config with tokens.
+
+[mcp_servers.coolify]
+command = "npx"
+args = ["-y", "@masonator/coolify-mcp"]
+
+[mcp_servers.coolify.env]
+COOLIFY_BASE_URL = "https://panel.example.com"
+COOLIFY_ACCESS_TOKEN = "paste-your-coolify-api-token"

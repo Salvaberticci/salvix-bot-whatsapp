@@ -1,0 +1,7 @@
+.env
+tmp/
+scratch/
+setup_db.php
+*.log
+error_log.txt
+DEBUG_ERROR.txt

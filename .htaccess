@@ -1,0 +1,16 @@
+# Seguridad: No listar archivos en el navegador
+Options -Indexes
+
+# Seguridad: Proteger el archivo de configuración sensible
+<Files .env>
+    Order allow,deny
+    Deny from all
+</Files>
+
+# Solo apagar Passenger si el módulo existe (evita Error 500 en local/XAMPP)
+<IfModule mod_passenger.c>
+    PassengerEnabled off
+</IfModule>
+
+# Definir página de inicio
+DirectoryIndex admin.php
