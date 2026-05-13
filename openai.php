@@ -107,12 +107,12 @@ function analyzeImage($filePath, $userText = "Describe esta imagen", $history = 
     ];
 
     $payload = [
-        'model' => 'llama-3.2-11b-vision-preview',
+        'model' => 'llama-3.2-90b-vision-preview',
         'messages' => $messages,
         'temperature' => 0.7
     ];
 
-    logger("ENVIANDO A GROQ VISION (Modelo 11B)...");
+    logger("ENVIANDO A GROQ VISION (Modelo 90B)...");
 
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
