@@ -64,6 +64,9 @@ if ($message) {
                 $reply = analyzeImage($tmpFile, $caption, $history);
                 $text = "[Imagen]: " . $caption; // Texto que guardaremos en DB
                 @unlink($tmpFile);
+            } else {
+                $reply = "Lo siento, no pude procesar tu imagen. Es posible que el token de conexión haya caducado. Por favor, contacta al administrador.";
+                $text = "[Error descarga imagen]";
             }
         } 
         elseif ($type === 'audio') {
@@ -73,6 +76,9 @@ if ($message) {
                 $transcript = transcribeAudio($tmpFile);
                 $text = "[Audio transcrito]: " . ($transcript ?: "No se pudo entender el audio.");
                 @unlink($tmpFile); // Borrar temporal
+            } else {
+                $reply = "Lo siento, no pude procesar tu mensaje de voz. El token podría estar vencido.";
+                $text = "[Error descarga audio]";
             }
         }
 
