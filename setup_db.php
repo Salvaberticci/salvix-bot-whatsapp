@@ -39,7 +39,17 @@ try {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-    echo "✅ Tabla 'leads' lista.<br>";
+    // 3. Crear tabla de Inventario (Sintaxis MySQL)
+    $pdo->exec("CREATE TABLE IF NOT EXISTS inventory (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        item_name VARCHAR(255) NOT NULL,
+        description TEXT,
+        price DECIMAL(10, 2) DEFAULT 0.00,
+        stock INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+    echo "✅ Tabla 'inventory' lista.<br>";
 
     echo "<br><strong>¡Todo listo! Ya puedes volver al <a href='admin.php'>Panel de Administración</a>.</strong>";
 

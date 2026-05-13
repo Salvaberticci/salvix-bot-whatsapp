@@ -5,14 +5,52 @@ require_once __DIR__ . '/config.php';
  * Cliente simple para Groq (OpenAI Compatible) usando cURL
  */
 
+function buildSystemPrompt() {
+    $prompt = @file_get_contents(__DIR__ . '/prompts/system.md');
+    if (!$prompt) {
+        $prompt = "Eres un asistente de ventas útil para Salvix. Responde de forma concisa en español.";
+    }
+    
+    // Leer archivos de conocimiento
+    $knowledgeDir = __DIR__ . '/knowledge';
+    if (is_dir($knowledgeDir)) {
+        $files = array_diff(scandir($knowledgeDir), array('.', '..', '.htaccess'));
+        if (!empty($files)) {
+            $prompt .= "\n\n--- BASE DE CONOCIMIENTOS ---\nUtiliza la siguiente información estrictamente para responder a las dudas del usuario. Si la información no está aquí, no la inventes.\n";
+            foreach ($files as $file) {
+                $content = @file_get_contents($knowledgeDir . '/' . $file);
+                if ($content) {
+                    $prompt .= "\n[Documento: $file]\n$content\n";
+                }
+            }
+            $prompt .= "--- FIN BASE DE CONOCIMIENTOS ---\n";
+        }
+    }
+    
+    // Leer el Inventario de la base de datos
+    require_once __DIR__ . '/db.php';
+    try {
+        $pdo = getDB();
+        $inventory = $pdo->query("SELECT * FROM inventory WHERE stock > 0")->fetchAll();
+        if (!empty($inventory)) {
+            $prompt .= "\n\n--- INVENTARIO DE PRODUCTOS DISPONIBLES ---\nUtiliza esta lista para ofrecer opciones reales, precios y confirmar disponibilidad al cliente. NO ofrezcas productos que no estén aquí:\n";
+            foreach ($inventory as $i) {
+                $prompt .= "- {$i['item_name']} | Descripción: {$i['description']} | Precio: $" . number_format($i['price'], 2) . " | Stock: {$i['stock']}\n";
+            }
+            $prompt .= "--- FIN INVENTARIO ---\n";
+        }
+    } catch (Exception $e) {
+        // Si hay error de DB, simplemente continuamos sin inventario
+    }
+    
+    return $prompt;
+}
+
 function completeChat($userMessage, $history = []) {
     $url = GROQ_BASE_URL . '/chat/completions';
     
-    // Leer el prompt del sistema desde el archivo original
-    $systemPrompt = @file_get_contents(__DIR__ . '/prompts/system.md');
-    if (!$systemPrompt) {
-        $systemPrompt = "Eres un asistente de ventas útil para Salvix. Responde de forma concisa en español.";
-    }
+    // Construir prompt dinámico con base de conocimientos
+    $systemPrompt = buildSystemPrompt();
     
     $messages = [];
     $messages[] = ['role' => 'system', 'content' => $systemPrompt];
@@ -88,8 +126,8 @@ function analyzeImage($filePath, $userText = "Describe esta imagen", $history = 
     $imageData = base64_encode(file_get_contents($filePath));
     $mimeType = 'image/jpeg';
     
-    // Leer el prompt del sistema para que el modelo de visión siga las reglas de Salvix
-    $systemPrompt = @file_get_contents(__DIR__ . '/prompts/system.md') ?: "Eres un asistente de ventas útil.";
+    // Construir prompt dinámico con base de conocimientos
+    $systemPrompt = buildSystemPrompt();
     
     $messages = [];
     $messages[] = ['role' => 'system', 'content' => $systemPrompt];

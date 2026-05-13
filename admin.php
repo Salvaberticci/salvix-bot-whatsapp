@@ -52,6 +52,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_config'])) {
     $success_msg = "Instrucciones actualizadas con éxito.";
 }
 
+// 2.0 Lógica de Auto-Prompt
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_prompt'])) {
+    $info = $_POST['company_info'] ?? '';
+    if (!empty($info)) {
+        $url = GROQ_BASE_URL . '/chat/completions';
+        $metaPrompt = "Eres un Experto Prompt Engineer. Escribe un 'System Prompt' excelente para un Bot de WhatsApp de ventas/atención al cliente, basado en esta info:
+        
+        Información de la empresa: $info
+        
+        Reglas para el prompt:
+        1. Debe ser claro y directo.
+        2. Define el rol del bot (ej: Eres el asistente virtual de...).
+        3. Instrucciones sobre qué hacer si no sabe la respuesta (ofrecer contacto humano).
+        4. Debe incluir el marcador [[ACTION_LINK]] cuando el usuario demuestre alta intención de compra o quiera agendar.
+        5. Debe incluir el marcador [[DESCALIFICADO]] si el usuario dice no tener presupuesto o no le interesa.
+        
+        Responde ÚNICAMENTE con el texto del prompt final, sin introducciones ni comentarios.";
+        
+        $payload = [
+            'model' => 'llama-3.3-70b-versatile',
+            'messages' => [['role' => 'user', 'content' => $metaPrompt]],
+            'temperature' => 0.5
+        ];
+
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json',
+            'Authorization: Bearer ' . ($_ENV['OPENAI_API_KEY'] ?? getenv('OPENAI_API_KEY'))
+        ]);
+        $response = curl_exec($ch);
+        curl_close($ch);
+        
+        $data = json_decode($response, true);
+        $generatedPrompt = $data['choices'][0]['message']['content'] ?? '';
+        
+        if ($generatedPrompt) {
+            file_put_contents(__DIR__ . '/prompts/system.md', trim($generatedPrompt));
+            $success_msg = "¡Instrucciones generadas mágicamente con IA!";
+        } else {
+            $error_msg = "No se pudo generar el prompt. Revisa los logs.";
+        }
+    }
+}
+
 // 2.1 Lógica de Guardado de APIs (.env)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_api'])) {
     $envPath = __DIR__ . '/.env';
@@ -76,6 +123,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_api'])) {
     
     file_put_contents($envPath, $envContent);
     $success_msg = "Credenciales de API actualizadas.";
+}
+
+// 2.2 Lógica de Archivos de Conocimiento
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_file'])) {
+    $target_dir = __DIR__ . '/knowledge/';
+    $target_file = $target_dir . basename($_FILES["knowledge_file"]["name"]);
+    $fileType = strtolower(pathinfo($target_file,PATHINFO_EXTENSION));
+    
+    if($fileType == "txt" || $fileType == "csv" || $fileType == "md") {
+        if (move_uploaded_file($_FILES["knowledge_file"]["tmp_name"], $target_file)) {
+            $success_msg = "Archivo subido correctamente.";
+        } else {
+            $error_msg = "Hubo un error subiendo tu archivo.";
+        }
+    } else {
+        $error_msg = "Solo se permiten archivos TXT, CSV o MD.";
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_file'])) {
+    $file = basename($_POST['file_name']);
+    @unlink(__DIR__ . '/knowledge/' . $file);
+    $success_msg = "Archivo eliminado.";
+}
+
+// 2.3 Lógica de Inventario
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_inventory'])) {
+    $item_name = $_POST['item_name'];
+    $description = $_POST['description'] ?? '';
+    $price = $_POST['price'] ?? 0;
+    $stock = $_POST['stock'] ?? 0;
+    
+    $pdo = getDB();
+    if (!empty($_POST['item_id'])) {
+        $stmt = $pdo->prepare("UPDATE inventory SET item_name=?, description=?, price=?, stock=? WHERE id=?");
+        $stmt->execute([$item_name, $description, $price, $stock, $_POST['item_id']]);
+        $success_msg = "Producto actualizado.";
+    } else {
+        $stmt = $pdo->prepare("INSERT INTO inventory (item_name, description, price, stock) VALUES (?, ?, ?, ?)");
+        $stmt->execute([$item_name, $description, $price, $stock]);
+        $success_msg = "Producto añadido al inventario.";
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_inventory'])) {
+    $id = $_POST['item_id'];
+    $pdo = getDB();
+    $stmt = $pdo->prepare("DELETE FROM inventory WHERE id=?");
+    $stmt->execute([$id]);
+    $success_msg = "Producto eliminado.";
 }
 
 // 3. Lógica del Dashboard
@@ -123,6 +220,8 @@ $threads = $pdo->query("SELECT wa_id, MAX(created_at) as last_msg FROM messages 
         <nav>
             <p><a href="admin.php" style="color:var(--ink); text-decoration:none; font-weight:bold;">📊 Dashboard</a></p>
             <p><a href="?view=leads" style="color:var(--ink); text-decoration:none;">👥 Leads Calificados</a></p>
+            <p><a href="?view=inventory" style="color:var(--ink); text-decoration:none;">📦 Inventario</a></p>
+            <p><a href="?view=knowledge" style="color:var(--ink); text-decoration:none;">📚 Base de Conocimientos</a></p>
             <p><a href="?view=logs" style="color:var(--ink); text-decoration:none;">📋 Logs de Sistema</a></p>
             <p><a href="?view=config" style="color:var(--ink); text-decoration:none;">⚙️ Configuración (Bot)</a></p>
             <p><a href="?view=api" style="color:var(--ink); text-decoration:none;">🔑 APIs y Tokens</a></p>
@@ -134,10 +233,21 @@ $threads = $pdo->query("SELECT wa_id, MAX(created_at) as last_msg FROM messages 
     <main>
         <?php if (isset($_GET['view']) && $_GET['view'] === 'config'): ?>
             <h1>⚙️ Configuración del Bot</h1>
+            
+            <div class="card" style="background:#f4fbf9; border:1px solid var(--primary);">
+                <h3>✨ Generador de Instrucciones Automático</h3>
+                <p class="label">Escribe de qué trata tu negocio y la IA redactará las reglas técnicas por ti.</p>
+                <form method="POST">
+                    <textarea name="company_info" rows="3" placeholder="Ej: Somos una clínica odontológica llamada 'Sonrisa Sana'. Atendemos de Lunes a Viernes de 8am a 6pm. Queremos que el bot sea muy amable y pida el DNI para agendar." style="margin-bottom:10px;"></textarea>
+                    <button type="submit" name="generate_prompt" class="btn" style="background:var(--primary);">Generar con IA</button>
+                </form>
+            </div>
+
             <div class="card">
-                <h3>Instrucciones del Sistema (Prompt)</h3>
-                <p class="label">Aquí defines cómo debe comportarse el bot, su personalidad y sus reglas.</p>
+                <h3>Instrucciones del Sistema (Prompt Manual)</h3>
+                <p class="label">Aquí puedes editar manualmente el comportamiento del bot.</p>
                 <?php if(isset($success_msg)) echo "<p style='color:green'>$success_msg</p>"; ?>
+                <?php if(isset($error_msg)) echo "<p style='color:red'>$error_msg</p>"; ?>
                 <form method="POST">
                     <textarea name="system_prompt" rows="15"><?php echo htmlspecialchars($prompt_content); ?></textarea>
                     <div style="margin-top:15px">
@@ -145,6 +255,102 @@ $threads = $pdo->query("SELECT wa_id, MAX(created_at) as last_msg FROM messages 
                     </div>
                 </form>
                 </form>
+            </div>
+        <?php elseif (isset($_GET['view']) && $_GET['view'] === 'knowledge'): 
+            $files = array_diff(scandir(__DIR__ . '/knowledge'), array('.', '..', '.htaccess'));
+            ?>
+            <h1>📚 Base de Conocimientos</h1>
+            <div class="card">
+                <h3>Subir Documento (.txt, .csv, .md)</h3>
+                <p class="label">El bot usará la información de estos archivos para responder a los clientes.</p>
+                <?php if(isset($success_msg)) echo "<p style='color:green'>$success_msg</p>"; ?>
+                <?php if(isset($error_msg)) echo "<p style='color:red'>$error_msg</p>"; ?>
+                <form method="POST" enctype="multipart/form-data">
+                    <input type="file" name="knowledge_file" accept=".txt,.csv,.md" required style="margin-bottom:15px;">
+                    <br>
+                    <button type="submit" name="upload_file" class="btn">Subir Archivo</button>
+                </form>
+            </div>
+            
+            <div class="card">
+                <h3>Archivos Actuales</h3>
+                <table>
+                    <thead><tr><th>Archivo</th><th>Acción</th></tr></thead>
+                    <tbody>
+                        <?php foreach ($files as $f): ?>
+                        <tr>
+                            <td><?php echo htmlspecialchars($f); ?></td>
+                            <td>
+                                <form method="POST" style="display:inline;">
+                                    <input type="hidden" name="file_name" value="<?php echo htmlspecialchars($f); ?>">
+                                    <button type="submit" name="delete_file" class="btn" style="background:#f44336;">Borrar</button>
+                                </form>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                        <?php if(empty($files)) echo "<tr><td colspan='2'>No hay archivos subidos.</td></tr>"; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php elseif (isset($_GET['view']) && $_GET['view'] === 'inventory'): 
+            $inventory = $pdo->query("SELECT * FROM inventory ORDER BY id DESC")->fetchAll();
+            ?>
+            <h1>📦 Inventario de Productos</h1>
+            <div class="card">
+                <h3>Añadir / Editar Producto</h3>
+                <p class="label">El bot podrá ofrecer estos productos y leer sus precios en tiempo real.</p>
+                <?php if(isset($success_msg)) echo "<p style='color:green'>$success_msg</p>"; ?>
+                <form method="POST">
+                    <input type="hidden" name="item_id" id="inv_id" value="">
+                    
+                    <label class="label">Nombre del Producto/Servicio</label>
+                    <input type="text" name="item_name" id="inv_name" required style="width:100%; padding:10px; margin-bottom:15px; border-radius:6px; border:1px solid #ddd;">
+                    
+                    <label class="label">Descripción breve</label>
+                    <textarea name="description" id="inv_desc" rows="2" style="margin-bottom:15px;"></textarea>
+                    
+                    <div style="display:flex; gap:15px;">
+                        <div style="flex:1;">
+                            <label class="label">Precio ($)</label>
+                            <input type="number" step="0.01" name="price" id="inv_price" value="0.00" style="width:100%; padding:10px; margin-bottom:15px; border-radius:6px; border:1px solid #ddd;">
+                        </div>
+                        <div style="flex:1;">
+                            <label class="label">Stock</label>
+                            <input type="number" name="stock" id="inv_stock" value="0" style="width:100%; padding:10px; margin-bottom:15px; border-radius:6px; border:1px solid #ddd;">
+                        </div>
+                    </div>
+                    
+                    <button type="submit" name="save_inventory" class="btn" style="background:var(--primary);">Guardar Producto</button>
+                    <button type="button" class="btn secondary" onclick="document.getElementById('inv_id').value=''; document.getElementById('inv_name').value=''; document.getElementById('inv_desc').value=''; document.getElementById('inv_price').value='0.00'; document.getElementById('inv_stock').value='0';">Limpiar Formulario</button>
+                </form>
+            </div>
+            
+            <div class="card">
+                <h3>Lista de Productos</h3>
+                <table>
+                    <thead><tr><th>ID</th><th>Nombre / Descripción</th><th>Precio</th><th>Stock</th><th>Acción</th></tr></thead>
+                    <tbody>
+                        <?php foreach ($inventory as $i): ?>
+                        <tr>
+                            <td><?php echo $i['id']; ?></td>
+                            <td>
+                                <strong><?php echo htmlspecialchars($i['item_name']); ?></strong><br>
+                                <small style="color:var(--muted)"><?php echo htmlspecialchars($i['description']); ?></small>
+                            </td>
+                            <td>$<?php echo number_format($i['price'], 2); ?></td>
+                            <td><?php echo $i['stock']; ?></td>
+                            <td>
+                                <button type="button" class="btn secondary" onclick="document.getElementById('inv_id').value='<?php echo $i['id']; ?>'; document.getElementById('inv_name').value='<?php echo addslashes(htmlspecialchars($i['item_name'])); ?>'; document.getElementById('inv_desc').value='<?php echo addslashes(htmlspecialchars($i['description'])); ?>'; document.getElementById('inv_price').value='<?php echo $i['price']; ?>'; document.getElementById('inv_stock').value='<?php echo $i['stock']; ?>';">Editar</button>
+                                <form method="POST" style="display:inline;" onsubmit="return confirm('¿Seguro que deseas borrar este producto?');">
+                                    <input type="hidden" name="item_id" value="<?php echo $i['id']; ?>">
+                                    <button type="submit" name="delete_inventory" class="btn" style="background:#f44336;">Borrar</button>
+                                </form>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                        <?php if(empty($inventory)) echo "<tr><td colspan='5'>No hay productos registrados.</td></tr>"; ?>
+                    </tbody>
+                </table>
             </div>
         <?php elseif (isset($_GET['view']) && $_GET['view'] === 'logs'): 
             $logs = @file_get_contents(__DIR__ . '/debug.log') ?: "No hay registros aún.";
