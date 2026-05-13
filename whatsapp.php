@@ -47,9 +47,12 @@ function downloadMetaMedia($mediaId) {
     $data = json_decode($resp, true);
     $downloadUrl = $data['url'] ?? null;
     
-    if (!$downloadUrl) return null;
+    if (!$downloadUrl) {
+        logger("ERROR: No se pudo obtener la URL de descarga de Meta. Respuesta: " . $resp);
+        return null;
+    }
 
-    // 2. Descargar el archivo binario (Meta prohíbe el header Authorization aquí)
+    // 2. Descargar el archivo binario
     $ch = curl_init($downloadUrl);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
@@ -57,12 +60,19 @@ function downloadMetaMedia($mediaId) {
         'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     ]);
     $binary = curl_exec($ch);
+    $info = curl_getinfo($ch);
     curl_close($ch);
+
+    if ($info['http_code'] !== 200) {
+        logger("ERROR: Fallo al descargar el binario de Meta. Código HTTP: " . $info['http_code']);
+        return null;
+    }
 
     // Guardar temporalmente
     $tmpFile = __DIR__ . '/tmp/' . $mediaId;
     if (!is_dir(__DIR__ . '/tmp')) mkdir(__DIR__ . '/tmp');
     file_put_contents($tmpFile, $binary);
     
+    logger("ÉXITO: Archivo descargado y guardado en $tmpFile (Tamaño: " . strlen($binary) . " bytes)");
     return $tmpFile;
 }

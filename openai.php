@@ -107,10 +107,12 @@ function analyzeImage($filePath, $userText = "Describe esta imagen", $history = 
     ];
 
     $payload = [
-        'model' => 'llama-3.2-90b-vision-preview',
+        'model' => 'llama-3.2-11b-vision-preview',
         'messages' => $messages,
         'temperature' => 0.7
     ];
+
+    logger("ENVIANDO A GROQ VISION (Modelo 11B)...");
 
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -122,8 +124,15 @@ function analyzeImage($filePath, $userText = "Describe esta imagen", $history = 
     ]);
 
     $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
     
+    if ($httpCode !== 200) {
+        logger("ERROR GROQ: Código $httpCode. Respuesta: " . $response);
+    } else {
+        logger("ÉXITO GROQ: Respuesta recibida correctamente.");
+    }
+
     $data = json_decode($response, true);
     return $data['choices'][0]['message']['content'] ?? "Lo siento, pude ver la imagen pero no logré procesar una respuesta.";
 }
