@@ -1,104 +1,33 @@
-# WhatsApp Bot Template
+# Salvix WhatsApp Bot (PHP Version)
 
-Plantilla publica para crear y desplegar un chatbot de WhatsApp con:
+Plataforma de automatización de WhatsApp basada en PHP, diseñada para correr eficientemente en hosting compartido (como Namecheap) y conectar con modelos de IA de última generación.
 
-- FastAPI
-- WhatsApp Cloud API de Meta
-- OpenAI
-- Postgres
-- Panel admin con login, conversaciones, CRM, dashboard y escalaciones
-- Deploy en Coolify
-- Instrucciones para Claude Code y OpenAI Codex
+## 🚀 Características
 
-## 1. Configuracion local
+- **Motor PHP 8.x**: Ejecución rápida y compatible con cualquier hosting.
+- **IA Integrada**: Conexión con **Groq (Llama 3.3)** para respuestas inteligentes y naturales.
+- **Base de Datos**: Persistencia en **PostgreSQL** (optimizado para Render).
+- **Dashboard Admin**: Panel de control para visualizar KPIs y conversaciones en tiempo real.
+- **CRM de Leads**: Calificación automática de prospectos mediante marcadores de IA.
 
-```bash
-cp .env.example .env
-```
+## 🛠️ Tecnologías
 
-Rellena `.env` con tus valores reales. No subas `.env` a GitHub.
+- **Lenguaje**: PHP 8.2+
+- **Base de Datos**: PostgreSQL
+- **IA**: Groq API (Compatible con OpenAI SDK)
+- **WhatsApp**: Cloud API de Meta
 
-Variables principales:
+## 📦 Instalación
 
-- `WHATSAPP_API_TOKEN`: token de Meta WhatsApp Cloud API.
-- `WHATSAPP_PHONE_NUMBER_ID`: Phone Number ID de tu numero de WhatsApp.
-- `WEBHOOK_DOMAIN`: dominio publico del bot, por ejemplo `https://bot.tudominio.com`.
-- `VERIFY_TOKEN`: texto secreto inventado por ti para validar el webhook en Meta.
-- `OPENAI_API_KEY`: API key de OpenAI.
-- `ADMIN_USER`, `ADMIN_PASSWORD`, `SESSION_SECRET`: acceso al panel `/admin`.
-- `QUALIFIED_CTA_URL`: link opcional para leads calificados.
+1. Clona el repositorio.
+2. Sube los archivos a tu servidor.
+3. Configura el archivo `.env` con tus credenciales.
+4. Ejecuta `setup_db.php` una vez para inicializar las tablas.
+5. Configura el Webhook en Meta hacia `webhook.php`.
 
-## 2. Personaliza el bot
+## 🔒 Seguridad
 
-Edita [prompts/system.md](prompts/system.md). Reemplaza los placeholders con la identidad,
-tono, reglas y criterios del negocio.
+El proyecto incluye un sistema de protección para el archivo `.env` mediante `.htaccess` y está preparado para no exponer datos sensibles en repositorios públicos.
 
-Si necesitas cargar FAQs, catalogo, politicas o respuestas frecuentes, crea archivos `.md` o
-`.txt` dentro de:
-
-```text
-prompts/knowledge/
-```
-
-## 3. Ejecutar localmente
-
-Necesitas Postgres y las variables de `.env` listas.
-
-```bash
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-```
-
-Endpoints:
-
-- `GET /health`
-- `GET /webhook`
-- `POST /webhook`
-- `POST /reload`
-- `POST /maintenance/reset-contact`
-- `GET /admin`
-
-## 4. Deploy con Claude Code
-
-Abre esta carpeta con Claude Code y pide:
-
-```text
-despliega mi bot de WhatsApp en Coolify
-```
-
-Claude usara el skill incluido en `.claude/skills/whatsapp-bot-deployer/`.
-
-## 5. Deploy con OpenAI Codex
-
-Abre esta carpeta con Codex. Las instrucciones del repo estan en [AGENTS.md](AGENTS.md).
-
-Si quieres usar el skill de Codex, copia o referencia:
-
-```text
-.codex/skills/whatsapp-bot-deployer/
-```
-
-Para MCP en Codex, usa como base:
-
-```text
-.codex/config.example.toml
-```
-
-## 6. Conectar Meta
-
-Cuando el despliegue este listo, configura el webhook en Meta:
-
-- Callback URL: `https://TU_DOMINIO/webhook`
-- Verify token: el valor de `VERIFY_TOKEN`
-- Webhook field: `messages`
-
-## Seguridad
-
-Antes de publicar este template:
-
-```bash
-rg -n "sk-|ghp_|EAA|token_real|password_real|secret_real|api_key_real" .
-```
-
-No deben existir secretos reales. Los archivos `.env`, `.mcp.json`, `META_SETUP.md` y
-`execution/` estan ignorados porque pueden contener credenciales.
+---
+*Desarrollado por Salvix - 2026*
