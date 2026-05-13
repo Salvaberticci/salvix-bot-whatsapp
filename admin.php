@@ -181,20 +181,25 @@ $threads = $pdo->query("SELECT wa_id, MAX(created_at) as last_msg FROM messages 
                 <p class="label">Lista de usuarios calificados por la IA.</p>
                 <table>
                     <thead>
-                        <tr><th>WhatsApp</th><th>Nombre</th><th>Negocio</th><th>Estado</th><th>Fecha</th></tr>
+                        <tr><th>WhatsApp</th><th>Nombre/Negocio</th><th>Resumen Conversación</th><th>Solicitud Cliente</th><th>Estado</th></tr>
                     </thead>
                     <tbody>
                         <?php foreach ($allLeads as $l): ?>
                         <tr>
                             <td><?php echo $l['wa_id']; ?></td>
-                            <td><?php echo htmlspecialchars($l['nombre'] ?: 'N/A'); ?></td>
-                            <td><?php echo htmlspecialchars($l['negocio'] ?: 'N/A'); ?></td>
+                            <td>
+                                <strong><?php echo htmlspecialchars($l['nombre'] ?: 'Sin nombre'); ?></strong><br>
+                                <small style="color:var(--muted)"><?php echo htmlspecialchars($l['negocio'] ?: 'Sin negocio'); ?></small>
+                            </td>
+                            <td style="font-size: 13px; max-width: 250px;"><?php echo htmlspecialchars($l['resumen'] ?: 'N/A'); ?></td>
+                            <td style="font-size: 13px; max-width: 250px; color: var(--primary);">
+                                <strong><?php echo htmlspecialchars($l['solicitud'] ?: 'N/A'); ?></strong>
+                            </td>
                             <td>
                                 <span class="badge" style="background: <?php echo $l['qualification_status'] === 'calificado' ? '#d4edda' : '#fff3cd'; ?>; color: <?php echo $l['qualification_status'] === 'calificado' ? '#155724' : '#856404'; ?>">
                                     <?php echo strtoupper($l['qualification_status']); ?>
                                 </span>
                             </td>
-                            <td><?php echo $l['created_at']; ?></td>
                         </tr>
                         <?php endforeach; ?>
                     </tbody>

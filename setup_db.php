@@ -4,6 +4,16 @@ require_once __DIR__ . '/db.php';
 echo "<h2>Iniciando configuración de MySQL...</h2>";
 
 try {
+    // Intentar conectar sin base de datos primero para crearla
+    $host = getenv('DB_HOST') ?: 'localhost';
+    $user = getenv('DB_USER');
+    $pass = getenv('DB_PASS');
+    $dbname = getenv('DB_NAME');
+    
+    $pdo_init = new PDO("mysql:host=$host", $user, $pass);
+    $pdo_init->exec("CREATE DATABASE IF NOT EXISTS `$dbname` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;");
+    echo "✅ Base de datos '$dbname' lista o ya existente.<br>";
+
     $pdo = getDB();
 
     // 1. Crear tabla de Mensajes (Sintaxis MySQL)
@@ -22,6 +32,8 @@ try {
         wa_id VARCHAR(50) PRIMARY KEY,
         nombre VARCHAR(100),
         negocio VARCHAR(100),
+        resumen TEXT,
+        solicitud TEXT,
         qualification_status VARCHAR(20) DEFAULT 'en_progreso',
         disqualify_reason TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
