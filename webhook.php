@@ -27,7 +27,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 $input = file_get_contents('php://input');
 $data = json_decode($input, true);
 
-if (!$data) {
+if ($data) {
+    logger("WEBHOOK RECIBIDO: " . $input);
+} else {
     exit;
 }
 
