@@ -36,9 +36,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 $input = file_get_contents('php://input');
 $data = json_decode($input, true);
 
-if ($data) {
-    logger("WEBHOOK RECIBIDO: " . $input);
+// LOGGER RAW: Esto guardará TODO lo que llegue, sin filtros.
+if ($input) {
+    logger("RAW INPUT: " . $input);
 } else {
+    // Si no hay input pero es un POST, podría ser un error de servidor
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        logger("POST recibido pero VACÍO. IP: " . $_SERVER['REMOTE_ADDR']);
+    }
+}
+
+if (!$data) {
     exit;
 }
 
