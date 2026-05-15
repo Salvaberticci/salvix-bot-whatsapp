@@ -6,7 +6,7 @@ require_once __DIR__ . '/config.php';
  */
 
 function sendWhatsAppText($to, $text) {
-    $url = "https://graph.facebook.com/v21.0/" . WA_PHONE_ID . "/messages";
+    $url = "https://graph.facebook.com/v25.0/" . WA_PHONE_ID . "/messages";
     
     $payload = [
         'messaging_product' => 'whatsapp',
@@ -37,7 +37,7 @@ function sendWhatsAppText($to, $text) {
  */
 function downloadMetaMedia($mediaId) {
     // 1. Obtener la URL de descarga
-    $url = "https://graph.facebook.com/v21.0/" . $mediaId;
+    $url = "https://graph.facebook.com/v25.0/" . $mediaId;
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . WA_TOKEN]);
