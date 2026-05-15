@@ -128,7 +128,7 @@ if ($message) {
 
         // 3. Procesar Leads y limpiar
         logger("PROCESANDO LIMPIEZA DE RESPUESTA...");
-        // processLeads($wa_id, $reply, $history); // Comentado temporalmente para probar
+        processLeads($wa_id, $reply, $history); 
         $cleanReply = cleanReply($reply);
 
         // 5. Enviar a WhatsApp
