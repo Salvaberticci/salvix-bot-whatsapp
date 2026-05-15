@@ -27,7 +27,14 @@ function sendWhatsAppText($to, $text) {
 
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $error = curl_error($ch);
     curl_close($ch);
+
+    if ($httpCode !== 200) {
+        logger("ERROR al enviar WhatsApp a $to: Código HTTP $httpCode. Respuesta: $response. Error CURL: $error");
+    } else {
+        logger("ÉXITO: Mensaje enviado a $to.");
+    }
 
     return $httpCode === 200;
 }
