@@ -16,7 +16,8 @@ function getDB() {
     $pass = getenv('DB_PASS');
 
     if (!$dbname || !$user) {
-        die("Error: Configuración de MySQL incompleta en el .env (DB_NAME, DB_USER, DB_PASS)");
+        logger("ERROR: Configuración de MySQL incompleta en el .env (DB_NAME, DB_USER, DB_PASS)");
+        exit;
     }
 
     $dsn = "mysql:host=$host;dbname=$dbname;charset=utf8mb4";
@@ -28,6 +29,7 @@ function getDB() {
         ]);
         return $pdo;
     } catch (PDOException $e) {
-        die("Error de conexión a MySQL: " . $e->getMessage());
+        logger("ERROR de conexión a MySQL: " . $e->getMessage());
+        exit;
     }
 }

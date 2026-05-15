@@ -65,7 +65,9 @@ if ($message) {
     $history = [];
 
     try {
+        logger("CONECTANDO A DB...");
         $pdo = getDB();
+        logger("DB CONECTADA.");
 
         // A. PROCESAR SEGÚN EL TIPO DE MENSAJE
         if ($type === 'text') {
@@ -119,8 +121,9 @@ if ($message) {
             $stmt = $pdo->prepare("SELECT role, content FROM messages WHERE wa_id = ? ORDER BY created_at DESC LIMIT 10");
             $stmt->execute([$wa_id]);
             $history = array_reverse($stmt->fetchAll());
-            
+            logger("LLAMANDO A IA (Groq)...");
             $reply = completeChat($text, $history);
+            logger("IA RESPONDIÓ.");
         }
 
         // 3. Procesar Leads y limpiar
