@@ -131,6 +131,7 @@ if ($message) {
         $cleanReply = cleanReply($reply);
 
         // 5. Enviar a WhatsApp
+        logger("PREPARANDO ENVÍO A $wa_id: $cleanReply");
         sendWhatsAppText($wa_id, $cleanReply);
 
         // 6. Guardar respuesta del bot

@@ -7,6 +7,7 @@ require_once __DIR__ . '/config.php';
 
 function sendWhatsAppText($to, $text) {
     $url = "https://graph.facebook.com/v25.0/" . WA_PHONE_ID . "/messages";
+    logger("URL DE ENVÍO: $url | TOKEN INICIA CON: " . substr(WA_TOKEN, 0, 10) . "...");
     
     $payload = [
         'messaging_product' => 'whatsapp',
