@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/knowledge.php';
 session_start();
 
 // 1. Autenticación Simple
@@ -148,6 +149,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_file'])) {
     $success_msg = "Archivo eliminado.";
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sync_knowledge'])) {
+    $chunks = indexKnowledge();
+    $success_msg = "¡Cerebro sincronizado! Se han creado $chunks fragmentos de conocimiento.";
+}
+
 // 2.3 Lógica de Inventario
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_inventory'])) {
     $item_name = $_POST['item_name'];
@@ -269,6 +275,11 @@ $threads = $pdo->query("SELECT wa_id, MAX(created_at) as last_msg FROM messages 
                     <input type="file" name="knowledge_file" accept=".txt,.csv,.md" required style="margin-bottom:15px;">
                     <br>
                     <button type="submit" name="upload_file" class="btn">Subir Archivo</button>
+                </form>
+                <hr>
+                <form method="POST">
+                    <button type="submit" name="sync_knowledge" class="btn" style="background:var(--primary); width:100%;">⚡ Sincronizar Cerebro (Indexar todo)</button>
+                    <p class="label" style="text-align:center; margin-top:5px;">Pulsa este botón después de subir o borrar archivos para que el bot se actualice.</p>
                 </form>
             </div>
             
