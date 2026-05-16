@@ -67,13 +67,15 @@ function completeChat($userMessage, $history = []) {
         'Content-Type: application/json',
         'Authorization: Bearer ' . GROQ_API_KEY
     ]);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 15); // Bajamos a 15 segundos para que no se cuelgue
 
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
     curl_close($ch);
 
     if ($httpCode !== 200) {
+        logger("ERROR en completeChat (Groq): Código HTTP $httpCode | Error cURL: $curlError | Respuesta: $response");
         return "Lo siento, tengo problemas para procesar tu mensaje ahora mismo.";
     }
 
