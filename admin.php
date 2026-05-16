@@ -132,7 +132,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_file'])) {
     $target_file = $target_dir . basename($_FILES["knowledge_file"]["name"]);
     $fileType = strtolower(pathinfo($target_file,PATHINFO_EXTENSION));
     
-    if($fileType == "txt" || $fileType == "csv" || $fileType == "md") {
+    if($fileType == "txt" || $fileType == "csv" || $fileType == "md" || $fileType == "docx") {
         if (move_uploaded_file($_FILES["knowledge_file"]["tmp_name"], $target_file)) {
             $success_msg = "Archivo subido correctamente.";
         } else {
@@ -272,7 +272,7 @@ $threads = $pdo->query("SELECT wa_id, MAX(created_at) as last_msg FROM messages 
                 <?php if(isset($success_msg)) echo "<p style='color:green'>$success_msg</p>"; ?>
                 <?php if(isset($error_msg)) echo "<p style='color:red'>$error_msg</p>"; ?>
                 <form method="POST" enctype="multipart/form-data">
-                    <input type="file" name="knowledge_file" accept=".txt,.csv,.md" required style="margin-bottom:15px;">
+                    <input type="file" name="knowledge_file" accept=".txt,.csv,.md,.docx" required style="margin-bottom:15px;">
                     <br>
                     <button type="submit" name="upload_file" class="btn">Subir Archivo</button>
                 </form>
