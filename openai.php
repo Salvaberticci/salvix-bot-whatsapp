@@ -42,7 +42,13 @@ function buildSystemPrompt($userMessage = "") {
 
 function completeChat($userMessage, $history = []) {
     $url = GROQ_BASE_URL . '/chat/completions';
-    $systemPrompt = buildSystemPrompt($userMessage);
+    $model = GROQ_MODEL;
+
+    logger("DEBUG: URL GROQ: $url | MODELO: $model");
+    
+    // Desactivamos RAG momentáneamente para descartar fallos de DB
+    // $systemPrompt = buildSystemPrompt($userMessage); 
+    $systemPrompt = "Eres un asistente de ventas útil para Salvix."; 
     
     $messages = [];
     $messages[] = ['role' => 'system', 'content' => $systemPrompt];
@@ -54,11 +60,12 @@ function completeChat($userMessage, $history = []) {
     $messages[] = ['role' => 'user', 'content' => $userMessage];
 
     $payload = [
-        'model' => GROQ_MODEL,
+        'model' => $model,
         'messages' => $messages,
         'temperature' => 0.7
     ];
 
+    logger("DEBUG: Enviando cURL a Groq...");
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POST, true);

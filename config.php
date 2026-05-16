@@ -21,13 +21,13 @@ function loadEnv($path) {
 loadEnv(__DIR__ . '/.env');
 
 // Definir constantes para fácil acceso
-define('DB_URL', getenv('DATABASE_URL'));
-define('WA_TOKEN', getenv('WHATSAPP_API_TOKEN'));
-define('WA_PHONE_ID', getenv('WHATSAPP_PHONE_NUMBER_ID'));
-define('WA_VERIFY_TOKEN', getenv('VERIFY_TOKEN'));
-define('GROQ_API_KEY', getenv('OPENAI_API_KEY'));
-define('GROQ_BASE_URL', getenv('OPENAI_BASE_URL') ?: 'https://api.groq.com/openai/v1');
-define('GROQ_MODEL', getenv('OPENAI_MODEL') ?: 'llama-3.3-70b-versatile');
+define('DB_URL', $_ENV['DATABASE_URL'] ?? getenv('DATABASE_URL'));
+define('WA_TOKEN', $_ENV['WHATSAPP_API_TOKEN'] ?? getenv('WHATSAPP_API_TOKEN'));
+define('WA_PHONE_ID', $_ENV['WHATSAPP_PHONE_NUMBER_ID'] ?? getenv('WHATSAPP_PHONE_NUMBER_ID'));
+define('WA_VERIFY_TOKEN', $_ENV['VERIFY_TOKEN'] ?? getenv('VERIFY_TOKEN'));
+define('GROQ_API_KEY', $_ENV['OPENAI_API_KEY'] ?? getenv('OPENAI_API_KEY'));
+define('GROQ_BASE_URL', $_ENV['OPENAI_BASE_URL'] ?? getenv('OPENAI_BASE_URL') ?: 'https://api.groq.com/openai/v1');
+define('GROQ_MODEL', $_ENV['OPENAI_MODEL'] ?? getenv('OPENAI_MODEL') ?: 'llama-3.3-70b-versatile');
 
 function logger($msg) {
     $date = date('Y-m-d H:i:s');
