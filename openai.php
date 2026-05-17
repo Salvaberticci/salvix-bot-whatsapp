@@ -54,9 +54,8 @@ function completeChat($userMessage, $history = []) {
 
     logger("DEBUG: URL GROQ: $url | MODELO: $model");
     
-    // Desactivamos RAG momentáneamente para descartar fallos de DB
-    // $systemPrompt = buildSystemPrompt($userMessage); 
-    $systemPrompt = "Eres un asistente de ventas útil para Salvix."; 
+    // Reactivamos RAG e Inventario
+    $systemPrompt = buildSystemPrompt($userMessage); 
     
     $messages = [];
     $messages[] = ['role' => 'system', 'content' => $systemPrompt];
