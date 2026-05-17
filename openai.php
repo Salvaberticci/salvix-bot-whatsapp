@@ -16,11 +16,14 @@ function buildSystemPrompt($userMessage = "") {
     if (!empty($userMessage)) {
         $chunks = searchKnowledge($userMessage, 5);
         if (!empty($chunks)) {
+            logger("RAG: Encontrados " . count($chunks) . " fragmentos relevantes para: '$userMessage'");
             $prompt .= "\n\n--- INFORMACIÓN DE APOYO (RELEVANTE PARA ESTA CONSULTA) ---\n";
             foreach ($chunks as $c) {
                 $prompt .= "[Fuente: {$c['source_file']}]\n{$c['content']}\n\n";
             }
             $prompt .= "--- FIN INFORMACIÓN DE APOYO ---\n";
+        } else {
+            logger("RAG: No se encontraron fragmentos relevantes para: '$userMessage'");
         }
     }
     
@@ -30,12 +33,17 @@ function buildSystemPrompt($userMessage = "") {
         $pdo = getDB();
         $inventory = $pdo->query("SELECT * FROM inventory WHERE stock > 0")->fetchAll();
         if (!empty($inventory)) {
+            logger("INVENTARIO: Cargados " . count($inventory) . " productos con stock activo.");
             $prompt .= "\n\n--- PRODUCTOS Y PRECIOS DISPONIBLES ---\n";
             foreach ($inventory as $i) {
                 $prompt .= "- {$i['item_name']} | Precio: $" . number_format($i['price'], 2) . " | Stock: {$i['stock']}\n";
             }
+        } else {
+            logger("INVENTARIO: No hay productos con stock > 0 en la base de datos.");
         }
-    } catch (Exception $e) {}
+    } catch (Exception $e) {
+        logger("ERROR INVENTARIO: " . $e->getMessage());
+    }
     
     return $prompt;
 }
