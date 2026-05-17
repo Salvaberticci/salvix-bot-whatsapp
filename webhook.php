@@ -140,7 +140,7 @@ if ($message) {
         $stmt->execute([$wa_id, $cleanReply]);
 
     } catch (Exception $e) {
-        error_log("Error en Webhook Multimedia: " . $e->getMessage());
+        logger("FATAL ERROR en Webhook: " . $e->getMessage() . " en " . $e->getFile() . " línea " . $e->getLine());
     }
 }
 

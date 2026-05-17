@@ -55,14 +55,14 @@ function searchKnowledge($query, $limit = 5) {
     // Limpiar la query de caracteres especiales para el buscador
     $cleanQuery = preg_replace('/[+\-><\(\)~*\"@]/', ' ', $query);
     
-    // Búsqueda Full-Text (FTS)
+    // Búsqueda Full-Text (FTS) - Hardcoded LIMIT to prevent SQL errors on string binding
     $stmt = $pdo->prepare("SELECT content, source_file, 
                            MATCH(content) AGAINST(? IN NATURAL LANGUAGE MODE) as relevance 
                            FROM knowledge_chunks 
                            WHERE MATCH(content) AGAINST(? IN NATURAL LANGUAGE MODE)
                            ORDER BY relevance DESC 
-                           LIMIT ?");
-    $stmt->execute([$cleanQuery, $cleanQuery, $limit]);
+                           LIMIT 5");
+    $stmt->execute([$cleanQuery, $cleanQuery]);
     
     return $stmt->fetchAll();
 }
