@@ -411,17 +411,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_profile_pic'])
         $filename = basename($_FILES['profile_pic']['name']);
         $mime = mime_content_type($file);
 
-        // Obtener WABA ID desde el número de teléfono
-        $ch = curl_init("https://graph.facebook.com/v25.0/" . WA_PHONE_ID . "?fields=id,whatsapp_business_account");
+        // Obtener WABA ID desde el token
+        $ch = curl_init("https://graph.facebook.com/v25.0/me?fields=whatsapp_business_accounts{id}");
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . WA_TOKEN]);
         $resp = curl_exec($ch);
         curl_close($ch);
-        $phoneData = json_decode($resp, true);
-        $wabaId = $phoneData['whatsapp_business_account']['id'] ?? null;
+        $meData = json_decode($resp, true);
+        $wabaId = $meData['whatsapp_business_accounts'][0]['id'] ?? null;
 
         if (!$wabaId) {
-            $error_msg = "No se pudo obtener el ID de la cuenta de negocio de WhatsApp.";
+            $error_msg = "No se encontró cuenta de negocio de WhatsApp asociada al token. Verifica que el token tenga permisos de 'WhatsApp Business Management'.";
         } else {
             // 1. Subir imagen al media endpoint del WABA (no del phone number)
             $url = "https://graph.facebook.com/v25.0/" . $wabaId . "/media";
