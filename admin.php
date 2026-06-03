@@ -22,23 +22,178 @@ if (!isset($_SESSION['admin'])) {
     ?>
     <!DOCTYPE html>
     <html lang="es">
-    <head><title>Salvix Admin - Login</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        body { font-family: sans-serif; background: #f4f5f2; display: grid; place-items: center; height: 100vh; margin: 0; }
-        .login-card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); width: 300px; }
-        input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
-        button { width: 100%; padding: 10px; background: #151716; color: white; border: none; border-radius: 6px; cursor: pointer; }
-    </style>
+    <head>
+        <title>Salvix Admin - Login</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body {
+                font-family: 'Inter', system-ui, sans-serif;
+                background: #0c0c12;
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                position: relative;
+                overflow: hidden;
+            }
+            body::before {
+                content: '';
+                position: absolute;
+                width: 600px;
+                height: 600px;
+                background: radial-gradient(circle, rgba(201, 168, 76, 0.06) 0%, transparent 70%);
+                top: -200px;
+                right: -200px;
+                pointer-events: none;
+            }
+            body::after {
+                content: '';
+                position: absolute;
+                width: 500px;
+                height: 500px;
+                background: radial-gradient(circle, rgba(96, 165, 250, 0.04) 0%, transparent 70%);
+                bottom: -200px;
+                left: -200px;
+                pointer-events: none;
+            }
+            .login-container {
+                position: relative;
+                z-index: 1;
+                width: 100%;
+                max-width: 420px;
+                padding: 20px;
+            }
+            .login-header {
+                text-align: center;
+                margin-bottom: 32px;
+            }
+            .login-logo {
+                width: 56px;
+                height: 56px;
+                background: linear-gradient(135deg, #c9a84c, #dbb95d);
+                border-radius: 16px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin: 0 auto 16px;
+                font-size: 22px;
+                font-weight: 700;
+                color: #0c0c12;
+                box-shadow: 0 8px 24px rgba(201, 168, 76, 0.2);
+            }
+            .login-header h1 {
+                color: #f0ece4;
+                font-size: 22px;
+                font-weight: 600;
+                letter-spacing: -0.3px;
+            }
+            .login-header p {
+                color: #5c5866;
+                font-size: 14px;
+                margin-top: 6px;
+            }
+            .login-card {
+                background: rgba(22, 22, 31, 0.8);
+                backdrop-filter: blur(20px);
+                border: 1px solid rgba(42, 42, 58, 0.6);
+                border-radius: 20px;
+                padding: 32px;
+                box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4);
+            }
+            .login-error {
+                background: rgba(239, 68, 68, 0.1);
+                border: 1px solid rgba(239, 68, 68, 0.2);
+                color: #fca5a5;
+                padding: 12px 16px;
+                border-radius: 10px;
+                font-size: 13px;
+                margin-bottom: 20px;
+                text-align: center;
+            }
+            .form-group {
+                margin-bottom: 20px;
+            }
+            .form-group label {
+                display: block;
+                color: #8a8692;
+                font-size: 12px;
+                font-weight: 500;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                margin-bottom: 8px;
+            }
+            .form-group input {
+                width: 100%;
+                padding: 14px 16px;
+                background: rgba(12, 12, 18, 0.6);
+                border: 1px solid #2a2a3a;
+                border-radius: 12px;
+                color: #f0ece4;
+                font-size: 15px;
+                font-family: 'Inter', sans-serif;
+                transition: all 0.2s ease;
+                outline: none;
+            }
+            .form-group input:focus {
+                border-color: #c9a84c;
+                box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.1);
+            }
+            .form-group input::placeholder {
+                color: #5c5866;
+            }
+            .login-btn {
+                width: 100%;
+                padding: 14px;
+                background: linear-gradient(135deg, #c9a84c, #dbb95d);
+                border: none;
+                border-radius: 12px;
+                color: #0c0c12;
+                font-family: 'Inter', sans-serif;
+                font-size: 15px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            }
+            .login-btn:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 8px 24px rgba(201, 168, 76, 0.3);
+            }
+            .login-btn:active {
+                transform: translateY(0);
+            }
+            @media (max-width: 480px) {
+                .login-card { padding: 24px; }
+            }
+        </style>
     </head>
     <body>
-        <div class="login-card">
-            <h2>Salvix Admin</h2>
-            <?php if(isset($error)) echo "<p style='color:red'>$error</p>"; ?>
-            <form method="POST">
-                <input type="text" name="username" placeholder="Usuario" required>
-                <input type="password" name="password" placeholder="Contraseña" required>
-                <button type="submit" name="login">Entrar</button>
-            </form>
+        <div class="login-container">
+            <div class="login-header">
+                <div class="login-logo">S</div>
+                <h1>Salvix Admin</h1>
+                <p>Panel de control del bot</p>
+            </div>
+            <div class="login-card">
+                <?php if(isset($error)): ?>
+                    <div class="login-error"><?php echo $error; ?></div>
+                <?php endif; ?>
+                <form method="POST">
+                    <div class="form-group">
+                        <label for="username">Usuario</label>
+                        <input type="text" id="username" name="username" placeholder="Ingresa tu usuario" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Contraseña</label>
+                        <input type="password" id="password" name="password" placeholder="Ingresa tu contraseña" required>
+                    </div>
+                    <button type="submit" name="login" class="login-btn">Entrar al panel</button>
+                </form>
+            </div>
         </div>
     </body>
     </html>
@@ -93,7 +248,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_prompt'])) {
         
         if ($generatedPrompt) {
             file_put_contents(__DIR__ . '/prompts/system.md', trim($generatedPrompt));
-            $success_msg = "¡Instrucciones generadas mágicamente con IA!";
+            $success_msg = "Instrucciones generadas con IA correctamente.";
         } else {
             $error_msg = "No se pudo generar el prompt. Revisa los logs.";
         }
@@ -151,7 +306,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_file'])) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sync_knowledge'])) {
     $chunks = indexKnowledge();
-    $success_msg = "¡Cerebro sincronizado! Se han creado $chunks fragmentos de conocimiento.";
+    $success_msg = "Cerebro sincronizado. Se han creado $chunks fragmentos de conocimiento.";
 }
 
 // 2.3 Lógica de Inventario
@@ -193,344 +348,1128 @@ $qualifiedLeads = $pdo->query("SELECT COUNT(*) FROM leads WHERE qualification_st
 // Listar hilos de conversación
 $threads = $pdo->query("SELECT wa_id, MAX(created_at) as last_msg FROM messages GROUP BY wa_id ORDER BY last_msg DESC LIMIT 50")->fetchAll();
 
+$currentView = $_GET['view'] ?? 'dashboard';
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <title>Salvix Admin - PHP</title>
+    <title>Salvix Admin</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        :root { --bg: #f4f5f2; --ink: #151716; --muted: #68706c; --primary: #176b5b; }
-        body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--ink); display: flex; height: 100vh; }
-        aside { width: 240px; background: #fbfcfa; border-right: 1px solid #dde2dc; padding: 20px; box-sizing: border-box; }
-        main { flex: 1; padding: 30px; overflow-y: auto; }
-        .card { background: white; padding: 20px; border-radius: 8px; border: 1px solid #dde2dc; margin-bottom: 20px; }
-        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px; }
-        .kpi { font-size: 24px; font-weight: bold; }
-        .label { color: var(--muted); font-size: 13px; text-transform: uppercase; }
-        table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; }
-        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
-        th { background: #fafbf9; color: var(--muted); font-size: 12px; }
-        .btn { padding: 8px 16px; background: var(--ink); color: white; text-decoration: none; border-radius: 6px; font-size: 13px; border:none; cursor:pointer; }
-        .btn.secondary { background: #eee; color: var(--ink); }
-        .badge { padding: 4px 8px; border-radius: 999px; font-size: 11px; font-weight: bold; background: #eee; }
-        textarea { width: 100%; border: 1px solid #ddd; border-radius: 8px; padding: 15px; font-family: monospace; font-size: 14px; box-sizing: border-box; }
+        :root {
+            --bg: #0c0c12;
+            --surface: #16161f;
+            --surface-2: #1a1a26;
+            --surface-3: #1e1e2a;
+            --border: #2a2a3a;
+            --border-light: #36364a;
+            --gold: #c9a84c;
+            --gold-hover: #dbb95d;
+            --gold-muted: rgba(201, 168, 76, 0.12);
+            --text: #f0ece4;
+            --text-2: #b4aeb8;
+            --text-3: #8a8692;
+            --text-4: #5c5866;
+            --danger: #ef4444;
+            --success: #4ade80;
+            --info: #60a5fa;
+            --sidebar-width: 260px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            z-index: 100;
+            transition: transform 0.3s ease;
+        }
+        .sidebar-brand {
+            padding: 24px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        .sidebar-logo {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--gold), var(--gold-hover));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 16px;
+            color: #0c0c12;
+            flex-shrink: 0;
+        }
+        .sidebar-brand-text h2 {
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+        }
+        .sidebar-brand-text span {
+            font-size: 11px;
+            color: var(--text-3);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .sidebar-nav {
+            flex: 1;
+            padding: 16px 12px;
+            overflow-y: auto;
+        }
+        .sidebar-section {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-4);
+            padding: 16px 12px 8px;
+            font-weight: 600;
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            color: var(--text-2);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.15s ease;
+            margin-bottom: 2px;
+        }
+        .nav-item:hover {
+            background: var(--surface-2);
+            color: var(--text);
+        }
+        .nav-item.active {
+            background: var(--gold-muted);
+            color: var(--gold);
+        }
+        .nav-item .nav-icon {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+            opacity: 0.7;
+        }
+        .nav-item.active .nav-icon { opacity: 1; }
+        .nav-item .nav-badge {
+            margin-left: auto;
+            background: var(--gold-muted);
+            color: var(--gold);
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 999px;
+        }
+        .sidebar-footer {
+            padding: 16px 12px;
+            border-top: 1px solid var(--border);
+        }
+
+        /* ===== MAIN ===== */
+        .main {
+            margin-left: var(--sidebar-width);
+            flex: 1;
+            min-height: 100vh;
+        }
+        .main-header {
+            padding: 24px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+        .main-header h1 {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+        }
+        .main-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .main-content {
+            padding: 32px;
+        }
+
+        /* ===== COMPONENTS ===== */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            transition: border-color 0.2s ease;
+        }
+        .card:hover {
+            border-color: var(--border-light);
+        }
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .card-header h3 {
+            font-size: 15px;
+            font-weight: 600;
+        }
+        .card-header .label {
+            font-size: 12px;
+            color: var(--text-3);
+        }
+        .card-glow {
+            border-color: rgba(201, 168, 76, 0.15);
+            box-shadow: 0 0 40px rgba(201, 168, 76, 0.03);
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+        .kpi-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, var(--gold), transparent);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .kpi-card:hover::before { opacity: 1; }
+        .kpi-card:hover { border-color: var(--border-light); transform: translateY(-2px); }
+        .kpi-label {
+            font-size: 12px;
+            color: var(--text-3);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 500;
+        }
+        .kpi-value {
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            margin-top: 8px;
+        }
+        .kpi-value.gold { color: var(--gold); }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        thead th {
+            text-align: left;
+            padding: 12px 16px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-4);
+            border-bottom: 1px solid var(--border);
+        }
+        tbody td {
+            padding: 12px 16px;
+            font-size: 14px;
+            border-bottom: 1px solid rgba(42, 42, 58, 0.5);
+            color: var(--text-2);
+        }
+        tbody tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+        tbody tr:last-child td { border-bottom: none; }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 18px;
+            border-radius: 10px;
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            text-decoration: none;
+            line-height: 1;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--gold), var(--gold-hover));
+            color: #0c0c12;
+        }
+        .btn-primary:hover {
+            box-shadow: 0 4px 16px rgba(201, 168, 76, 0.25);
+            transform: translateY(-1px);
+        }
+        .btn-secondary {
+            background: var(--surface-3);
+            color: var(--text-2);
+            border: 1px solid var(--border);
+        }
+        .btn-secondary:hover {
+            background: var(--border);
+            color: var(--text);
+        }
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.12);
+            color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.2);
+        }
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+            border-radius: 8px;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+        .badge-success {
+            background: rgba(74, 222, 128, 0.1);
+            color: var(--success);
+            border: 1px solid rgba(74, 222, 128, 0.2);
+        }
+        .badge-warning {
+            background: rgba(251, 191, 36, 0.1);
+            color: #fbbf24;
+            border: 1px solid rgba(251, 191, 36, 0.2);
+        }
+        .badge-info {
+            background: rgba(96, 165, 250, 0.1);
+            color: var(--info);
+            border: 1px solid rgba(96, 165, 250, 0.2);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-3);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .form-control {
+            width: 100%;
+            padding: 12px 14px;
+            background: rgba(12, 12, 18, 0.5);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text);
+            font-size: 14px;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.2s ease;
+            outline: none;
+        }
+        .form-control:focus {
+            border-color: var(--gold);
+            box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.08);
+        }
+        .form-control::placeholder { color: var(--text-4); }
+        textarea.form-control {
+            resize: vertical;
+            min-height: 120px;
+            line-height: 1.6;
+        }
+        select.form-control {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='%238a8692'%3E%3Cpath d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            padding-right: 40px;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .alert {
+            padding: 14px 16px;
+            border-radius: 10px;
+            font-size: 13px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .alert-success {
+            background: rgba(74, 222, 128, 0.08);
+            border: 1px solid rgba(74, 222, 128, 0.15);
+            color: var(--success);
+        }
+        .alert-error {
+            background: rgba(239, 68, 68, 0.08);
+            border: 1px solid rgba(239, 68, 68, 0.15);
+            color: var(--danger);
+        }
+
+        /* Chat */
+        .chat-container {
+            height: 480px;
+            overflow-y: auto;
+            padding: 16px;
+            background: rgba(12, 12, 18, 0.4);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+        .chat-container::-webkit-scrollbar { width: 6px; }
+        .chat-container::-webkit-scrollbar-track { background: transparent; }
+        .chat-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        .chat-msg {
+            margin-bottom: 16px;
+            display: flex;
+            flex-direction: column;
+        }
+        .chat-msg.user { align-items: flex-start; }
+        .chat-msg.assistant { align-items: flex-end; }
+        .chat-bubble {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+        .chat-msg.user .chat-bubble {
+            background: var(--surface-3);
+            color: var(--text);
+            border-bottom-left-radius: 4px;
+        }
+        .chat-msg.assistant .chat-bubble {
+            background: linear-gradient(135deg, rgba(201, 168, 76, 0.15), rgba(201, 168, 76, 0.08));
+            color: var(--text);
+            border: 1px solid rgba(201, 168, 76, 0.15);
+            border-bottom-right-radius: 4px;
+        }
+        .chat-bubble.media {
+            background: rgba(251, 191, 36, 0.08);
+            border: 1px solid rgba(251, 191, 36, 0.15);
+        }
+        .chat-time {
+            font-size: 10px;
+            color: var(--text-4);
+            margin-top: 4px;
+            padding: 0 4px;
+        }
+
+        /* Logs */
+        .log-viewer {
+            background: #0a0a0f;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            height: 500px;
+            overflow-y: auto;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 12px;
+            line-height: 1.8;
+        }
+        .log-viewer::-webkit-scrollbar { width: 6px; }
+        .log-viewer::-webkit-scrollbar-track { background: transparent; }
+        .log-viewer::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        .log-line {
+            padding: 4px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .log-line.error { color: var(--danger); }
+        .log-line.success { color: var(--success); }
+        .log-line.info { color: var(--info); }
+        .log-line.warn { color: #fbbf24; }
+
+        /* File list */
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: rgba(12, 12, 18, 0.3);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 8px;
+            transition: all 0.15s ease;
+        }
+        .file-item:hover { border-color: var(--border-light); }
+        .file-item .file-name {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            color: var(--text-2);
+        }
+
+        /* Emoji/icon fallback styling */
+        .icon-lg { font-size: 24px; line-height: 1; }
+
+        /* Mobile toggle */
+        .sidebar-toggle {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--text-2);
+            font-size: 24px;
+            cursor: pointer;
+            padding: 4px;
+        }
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 99;
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 48px 24px;
+            color: var(--text-4);
+        }
+        .empty-state .icon { font-size: 48px; margin-bottom: 16px; opacity: 0.3; }
+        .empty-state h4 { font-size: 16px; color: var(--text-3); margin-bottom: 8px; }
+        .empty-state p { font-size: 13px; }
+
+        /* Input file custom */
+        input[type="file"]::file-selector-button {
+            padding: 8px 16px;
+            border-radius: 8px;
+            background: var(--surface-3);
+            border: 1px solid var(--border);
+            color: var(--text-2);
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            cursor: pointer;
+            margin-right: 12px;
+            transition: all 0.15s ease;
+        }
+        input[type="file"]::file-selector-button:hover {
+            background: var(--border);
+            color: var(--text);
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            .sidebar-overlay.open {
+                display: block;
+            }
+            .sidebar-toggle {
+                display: block;
+            }
+            .main {
+                margin-left: 0;
+            }
+            .main-header {
+                padding: 16px 20px;
+            }
+            .main-content {
+                padding: 20px;
+            }
+            .kpi-grid {
+                grid-template-columns: 1fr;
+            }
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
-    <aside>
-        <h2>Salvix</h2>
-        <p class="label">Panel PHP</p>
-        <hr>
-        <nav>
-            <p><a href="admin.php" style="color:var(--ink); text-decoration:none; font-weight:bold;">📊 Dashboard</a></p>
-            <p><a href="?view=leads" style="color:var(--ink); text-decoration:none;">👥 Leads Calificados</a></p>
-            <p><a href="?view=inventory" style="color:var(--ink); text-decoration:none;">📦 Inventario</a></p>
-            <p><a href="?view=knowledge" style="color:var(--ink); text-decoration:none;">📚 Base de Conocimientos</a></p>
-            <p><a href="?view=logs" style="color:var(--ink); text-decoration:none;">📋 Logs de Sistema</a></p>
-            <p><a href="?view=config" style="color:var(--ink); text-decoration:none;">⚙️ Configuración (Bot)</a></p>
-            <p><a href="?view=api" style="color:var(--ink); text-decoration:none;">🔑 APIs y Tokens</a></p>
-            <p><a href="health.php" target="_blank" style="color:var(--muted); text-decoration:none;">🏥 Estado Salud</a></p>
-            <hr>
-            <p><a href="?logout=1" style="color:red; text-decoration:none;">🚪 Salir</a></p>
+
+    <!-- Sidebar Overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+    <!-- ===== SIDEBAR ===== -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <div class="sidebar-logo">S</div>
+            <div class="sidebar-brand-text">
+                <h2>Salvix</h2>
+                <span>Admin Panel</span>
+            </div>
+        </div>
+        <nav class="sidebar-nav">
+            <div class="sidebar-section">General</div>
+            <a href="admin.php" class="nav-item <?php echo $currentView === 'dashboard' ? 'active' : ''; ?>">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                Dashboard
+            </a>
+            <a href="?view=leads" class="nav-item <?php echo $currentView === 'leads' ? 'active' : ''; ?>">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                Leads
+                <?php if($totalLeads > 0): ?>
+                    <span class="nav-badge"><?php echo $totalLeads; ?></span>
+                <?php endif; ?>
+            </a>
+
+            <div class="sidebar-section">Negocio</div>
+            <a href="?view=inventory" class="nav-item <?php echo $currentView === 'inventory' ? 'active' : ''; ?>">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                Inventario
+            </a>
+            <a href="?view=knowledge" class="nav-item <?php echo $currentView === 'knowledge' ? 'active' : ''; ?>">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                Conocimiento
+            </a>
+
+            <div class="sidebar-section">Configuración</div>
+            <a href="?view=config" class="nav-item <?php echo $currentView === 'config' ? 'active' : ''; ?>">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                Bot Config
+            </a>
+            <a href="?view=api" class="nav-item <?php echo $currentView === 'api' ? 'active' : ''; ?>">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-8-4-8-10V5l8-3 8 3v7c0 6-8 10-8 10z"/></svg>
+                APIs & Tokens
+            </a>
+
+            <div class="sidebar-section">Sistema</div>
+            <a href="?view=logs" class="nav-item <?php echo $currentView === 'logs' ? 'active' : ''; ?>">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                Logs
+            </a>
+            <a href="health.php" target="_blank" class="nav-item">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                Health Check
+            </a>
         </nav>
+        <div class="sidebar-footer">
+            <a href="?logout=1" class="nav-item" style="color: var(--danger);">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                Cerrar Sesión
+            </a>
+        </div>
     </aside>
-    <main>
-        <?php if (isset($_GET['view']) && $_GET['view'] === 'config'): ?>
-            <h1>⚙️ Configuración del Bot</h1>
-            
-            <div class="card" style="background:#f4fbf9; border:1px solid var(--primary);">
-                <h3>✨ Generador de Instrucciones Automático</h3>
-                <p class="label">Escribe de qué trata tu negocio y la IA redactará las reglas técnicas por ti.</p>
-                <form method="POST">
-                    <textarea name="company_info" rows="3" placeholder="Ej: Somos una clínica odontológica llamada 'Sonrisa Sana'. Atendemos de Lunes a Viernes de 8am a 6pm. Queremos que el bot sea muy amable y pida el DNI para agendar." style="margin-bottom:10px;"></textarea>
-                    <button type="submit" name="generate_prompt" class="btn" style="background:var(--primary);">Generar con IA</button>
-                </form>
-            </div>
 
-            <div class="card">
-                <h3>Instrucciones del Sistema (Prompt Manual)</h3>
-                <p class="label">Aquí puedes editar manualmente el comportamiento del bot.</p>
-                <?php if(isset($success_msg)) echo "<p style='color:green'>$success_msg</p>"; ?>
-                <?php if(isset($error_msg)) echo "<p style='color:red'>$error_msg</p>"; ?>
-                <form method="POST">
-                    <textarea name="system_prompt" rows="15"><?php echo htmlspecialchars($prompt_content); ?></textarea>
-                    <div style="margin-top:15px">
-                        <button type="submit" name="save_config" class="btn">Guardar Instrucciones</button>
-                    </div>
-                </form>
-                </form>
-            </div>
-        <?php elseif (isset($_GET['view']) && $_GET['view'] === 'knowledge'): 
-            $files = array_diff(scandir(__DIR__ . '/knowledge'), array('.', '..', '.htaccess'));
-            ?>
-            <h1>📚 Base de Conocimientos</h1>
-            <div class="card">
-                <h3>Subir Documento (.txt, .csv, .md)</h3>
-                <p class="label">El bot usará la información de estos archivos para responder a los clientes.</p>
-                <?php if(isset($success_msg)) echo "<p style='color:green'>$success_msg</p>"; ?>
-                <?php if(isset($error_msg)) echo "<p style='color:red'>$error_msg</p>"; ?>
-                <form method="POST" enctype="multipart/form-data">
-                    <input type="file" name="knowledge_file" accept=".txt,.csv,.md,.docx" required style="margin-bottom:15px;">
-                    <br>
-                    <button type="submit" name="upload_file" class="btn">Subir Archivo</button>
-                </form>
-                <hr>
-                <form method="POST">
-                    <button type="submit" name="sync_knowledge" class="btn" style="background:var(--primary); width:100%;">⚡ Sincronizar Cerebro (Indexar todo)</button>
-                    <p class="label" style="text-align:center; margin-top:5px;">Pulsa este botón después de subir o borrar archivos para que el bot se actualice.</p>
-                </form>
-            </div>
-            
-            <div class="card">
-                <h3>Archivos Actuales</h3>
-                <table>
-                    <thead><tr><th>Archivo</th><th>Acción</th></tr></thead>
-                    <tbody>
-                        <?php foreach ($files as $f): ?>
-                        <tr>
-                            <td><?php echo htmlspecialchars($f); ?></td>
-                            <td>
-                                <form method="POST" style="display:inline;">
-                                    <input type="hidden" name="file_name" value="<?php echo htmlspecialchars($f); ?>">
-                                    <button type="submit" name="delete_file" class="btn" style="background:#f44336;">Borrar</button>
-                                </form>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                        <?php if(empty($files)) echo "<tr><td colspan='2'>No hay archivos subidos.</td></tr>"; ?>
-                    </tbody>
-                </table>
-            </div>
-        <?php elseif (isset($_GET['view']) && $_GET['view'] === 'inventory'): 
-            $inventory = $pdo->query("SELECT * FROM inventory ORDER BY id DESC")->fetchAll();
-            ?>
-            <h1>📦 Inventario de Productos</h1>
-            <div class="card">
-                <h3>Añadir / Editar Producto</h3>
-                <p class="label">El bot podrá ofrecer estos productos y leer sus precios en tiempo real.</p>
-                <?php if(isset($success_msg)) echo "<p style='color:green'>$success_msg</p>"; ?>
-                <form method="POST">
-                    <input type="hidden" name="item_id" id="inv_id" value="">
-                    
-                    <label class="label">Nombre del Producto/Servicio</label>
-                    <input type="text" name="item_name" id="inv_name" required style="width:100%; padding:10px; margin-bottom:15px; border-radius:6px; border:1px solid #ddd;">
-                    
-                    <label class="label">Descripción breve</label>
-                    <textarea name="description" id="inv_desc" rows="2" style="margin-bottom:15px;"></textarea>
-                    
-                    <div style="display:flex; gap:15px;">
-                        <div style="flex:1;">
-                            <label class="label">Precio ($)</label>
-                            <input type="number" step="0.01" name="price" id="inv_price" value="0.00" style="width:100%; padding:10px; margin-bottom:15px; border-radius:6px; border:1px solid #ddd;">
-                        </div>
-                        <div style="flex:1;">
-                            <label class="label">Stock</label>
-                            <input type="number" name="stock" id="inv_stock" value="0" style="width:100%; padding:10px; margin-bottom:15px; border-radius:6px; border:1px solid #ddd;">
-                        </div>
-                    </div>
-                    
-                    <button type="submit" name="save_inventory" class="btn" style="background:var(--primary);">Guardar Producto</button>
-                    <button type="button" class="btn secondary" onclick="document.getElementById('inv_id').value=''; document.getElementById('inv_name').value=''; document.getElementById('inv_desc').value=''; document.getElementById('inv_price').value='0.00'; document.getElementById('inv_stock').value='0';">Limpiar Formulario</button>
-                </form>
-            </div>
-            
-            <div class="card">
-                <h3>Lista de Productos</h3>
-                <table>
-                    <thead><tr><th>ID</th><th>Nombre / Descripción</th><th>Precio</th><th>Stock</th><th>Acción</th></tr></thead>
-                    <tbody>
-                        <?php foreach ($inventory as $i): ?>
-                        <tr>
-                            <td><?php echo $i['id']; ?></td>
-                            <td>
-                                <strong><?php echo htmlspecialchars($i['item_name']); ?></strong><br>
-                                <small style="color:var(--muted)"><?php echo htmlspecialchars($i['description']); ?></small>
-                            </td>
-                            <td>$<?php echo number_format($i['price'], 2); ?></td>
-                            <td><?php echo $i['stock']; ?></td>
-                            <td>
-                                <button type="button" class="btn secondary" onclick="document.getElementById('inv_id').value='<?php echo $i['id']; ?>'; document.getElementById('inv_name').value='<?php echo addslashes(htmlspecialchars($i['item_name'])); ?>'; document.getElementById('inv_desc').value='<?php echo addslashes(htmlspecialchars($i['description'])); ?>'; document.getElementById('inv_price').value='<?php echo $i['price']; ?>'; document.getElementById('inv_stock').value='<?php echo $i['stock']; ?>';">Editar</button>
-                                <form method="POST" style="display:inline;" onsubmit="return confirm('¿Seguro que deseas borrar este producto?');">
-                                    <input type="hidden" name="item_id" value="<?php echo $i['id']; ?>">
-                                    <button type="submit" name="delete_inventory" class="btn" style="background:#f44336;">Borrar</button>
-                                </form>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                        <?php if(empty($inventory)) echo "<tr><td colspan='5'>No hay productos registrados.</td></tr>"; ?>
-                    </tbody>
-                </table>
-            </div>
-        <?php elseif (isset($_GET['view']) && $_GET['view'] === 'logs'): 
-            $logs = @file_get_contents(__DIR__ . '/debug.log') ?: "No hay registros aún.";
-            $logLines = array_reverse(explode("\n", trim($logs)));
-            $lastLogs = array_slice($logLines, 0, 50);
-            ?>
-            <h1>📋 Logs de Sistema</h1>
-            <div class="card">
-                <h3>Últimos 50 eventos</h3>
-                <p class="label">Historial de depuración (Meta, Groq y errores).</p>
-                <div style="background:#1e1e1e; color:#d4d4d4; padding:15px; border-radius:8px; font-family:monospace; font-size:12px; height:500px; overflow-y:auto; line-height:1.6;">
-                    <?php foreach ($lastLogs as $line): 
-                        if (empty($line)) continue;
-                        $color = "#d4d4d4";
-                        if (strpos($line, 'ERROR') !== false) $color = "#f44336";
-                        if (strpos($line, 'ÉXITO') !== false) $color = "#4caf50";
-                        if (strpos($line, 'GROQ') !== false) $color = "#2196f3";
+    <!-- ===== MAIN ===== -->
+    <div class="main">
+        <div class="main-header">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+                <h1>
+                    <?php
+                    $titles = [
+                        'dashboard' => 'Dashboard',
+                        'leads' => 'Leads & Prospectos',
+                        'inventory' => 'Inventario',
+                        'knowledge' => 'Base de Conocimiento',
+                        'config' => 'Configuración del Bot',
+                        'api' => 'APIs & Credenciales',
+                        'logs' => 'Logs del Sistema',
+                    ];
+                    echo $titles[$currentView] ?? 'Dashboard';
                     ?>
-                        <div style="color:<?php echo $color; ?>; border-bottom:1px solid #333; padding:4px 0;">
-                            <?php echo htmlspecialchars($line); ?>
+                </h1>
+            </div>
+            <div class="main-header-actions">
+                <span style="font-size:13px; color:var(--text-4);"><?php echo date('d M Y'); ?></span>
+            </div>
+        </div>
+
+        <div class="main-content">
+
+            <?php if(isset($success_msg)): ?>
+                <div class="alert alert-success"><?php echo $success_msg; ?></div>
+            <?php endif; ?>
+            <?php if(isset($error_msg)): ?>
+                <div class="alert alert-error"><?php echo $error_msg; ?></div>
+            <?php endif; ?>
+
+            <?php if ($currentView === 'config'): ?>
+
+                <!-- ===== CONFIG VIEW ===== -->
+                <div class="card card-glow">
+                    <div class="card-header">
+                        <div>
+                            <h3>Generador Automático de Instrucciones</h3>
+                            <p class="label">Describe tu negocio y la IA redactará las reglas del bot automáticamente</p>
                         </div>
-                    <?php endforeach; ?>
-                </div>
-                <div style="margin-top:15px">
-                    <a href="?view=logs" class="btn">Refrescar Logs</a>
-                </div>
-            </div>
-        <?php elseif (isset($_GET['view']) && $_GET['view'] === 'leads'): 
-            $allLeads = $pdo->query("SELECT * FROM leads ORDER BY created_at DESC")->fetchAll();
-            ?>
-            <h1>👥 Gestión de Leads</h1>
-            <div class="card">
-                <h3>Prospectos Detectados</h3>
-                <p class="label">Lista de usuarios calificados por la IA.</p>
-                <table>
-                    <thead>
-                        <tr><th>WhatsApp</th><th>Nombre/Negocio</th><th>Resumen Conversación</th><th>Solicitud Cliente</th><th>Estado</th></tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($allLeads as $l): ?>
-                        <tr>
-                            <td><?php echo $l['wa_id']; ?></td>
-                            <td>
-                                <strong><?php echo htmlspecialchars($l['nombre'] ?: 'Sin nombre'); ?></strong><br>
-                                <small style="color:var(--muted)"><?php echo htmlspecialchars($l['negocio'] ?: 'Sin negocio'); ?></small>
-                            </td>
-                            <td style="font-size: 13px; max-width: 250px;"><?php echo htmlspecialchars($l['resumen'] ?: 'N/A'); ?></td>
-                            <td style="font-size: 13px; max-width: 250px; color: var(--primary);">
-                                <strong><?php echo htmlspecialchars($l['solicitud'] ?: 'N/A'); ?></strong>
-                            </td>
-                            <td>
-                                <span class="badge" style="background: <?php echo $l['qualification_status'] === 'calificado' ? '#d4edda' : '#fff3cd'; ?>; color: <?php echo $l['qualification_status'] === 'calificado' ? '#155724' : '#856404'; ?>">
-                                    <?php echo strtoupper($l['qualification_status']); ?>
-                                </span>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        <?php elseif (isset($_GET['view']) && $_GET['view'] === 'api'): ?>
-            <h1>🔑 APIs y Credenciales</h1>
-            <div class="card">
-                <h3>Tokens de Conexión</h3>
-                <p class="label">Configura las llaves maestras de WhatsApp y Groq.</p>
-                <?php if(isset($success_msg)) echo "<p style='color:green'>$success_msg</p>"; ?>
-                <form method="POST">
-                    <label class="label">WhatsApp API Token</label>
-                    <input type="text" name="wa_token" value="<?php echo htmlspecialchars($_ENV['WHATSAPP_API_TOKEN'] ?? getenv('WHATSAPP_API_TOKEN')); ?>" style="width:100%; padding:10px; margin-bottom:15px; border-radius:6px; border:1px solid #ddd;">
-                    
-                    <label class="label">WhatsApp Phone Number ID</label>
-                    <input type="text" name="wa_phone_id" value="<?php echo htmlspecialchars($_ENV['WHATSAPP_PHONE_NUMBER_ID'] ?? getenv('WHATSAPP_PHONE_NUMBER_ID')); ?>" style="width:100%; padding:10px; margin-bottom:15px; border-radius:6px; border:1px solid #ddd;">
-                    
-                    <hr style="border:0; border-top:1px solid #eee; margin:20px 0;">
-                    
-                    <label class="label">Groq API Key (gs_...)</label>
-                    <input type="text" name="groq_key" value="<?php echo htmlspecialchars($_ENV['OPENAI_API_KEY'] ?? getenv('OPENAI_API_KEY')); ?>" style="width:100%; padding:10px; margin-bottom:15px; border-radius:6px; border:1px solid #ddd;">
-                    
-                    <label class="label">Modelo de Texto Principal</label>
-                    <input type="text" name="text_model" value="<?php echo htmlspecialchars($_ENV['OPENAI_MODEL'] ?? getenv('OPENAI_MODEL')); ?>" style="width:100%; padding:10px; margin-bottom:15px; border-radius:6px; border:1px solid #ddd;">
-
-                    <div style="margin-top:15px">
-                        <button type="submit" name="save_api" class="btn">Guardar Credenciales</button>
+                        <span class="badge badge-info">IA</span>
                     </div>
-                </form>
-            </div>
-        <?php else: ?>
-            <h1>📊 Dashboard</h1>
-            <div class="grid">
-                <div class="card"><div class="label">Mensajes</div><div class="kpi"><?php echo $totalMsgs; ?></div></div>
-                <div class="card"><div class="label">Leads Totales</div><div class="kpi"><?php echo $totalLeads; ?></div></div>
-                <div class="card"><div class="label">Calificados</div><div class="kpi" style="color:var(--primary)"><?php echo $qualifiedLeads; ?></div></div>
-            </div>
-
-            <div class="card">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                    <h3>Conversaciones Recientes</h3>
-                    <form method="GET" style="display:flex; gap:10px;">
-                        <input type="text" name="search" placeholder="Buscar por ID..." value="<?php echo htmlspecialchars($_GET['search'] ?? ''); ?>" style="padding:6px; border:1px solid #ddd; border-radius:4px;">
-                        <button type="submit" class="btn">🔍</button>
+                    <form method="POST">
+                        <div class="form-group">
+                            <label>Información del negocio</label>
+                            <textarea class="form-control" name="company_info" rows="3" placeholder="Ej: Somos una clínica odontológica llamada 'Sonrisa Sana'. Atendemos de Lunes a Viernes de 8am a 6pm. Queremos que el bot sea muy amable y pida el DNI para agendar."></textarea>
+                        </div>
+                        <button type="submit" name="generate_prompt" class="btn btn-primary">Generar con IA</button>
                     </form>
                 </div>
-                <table>
-                    <thead>
-                        <tr><th>WA_ID</th><th>Última Actividad</th><th>Acción</th></tr>
-                    </thead>
-                    <tbody>
-                        <?php 
-                        $search = $_GET['search'] ?? '';
-                        $query = "SELECT wa_id, MAX(created_at) as last_msg FROM messages ";
-                        if ($search) {
-                            $query .= " WHERE wa_id LIKE :search ";
-                        }
-                        $query .= " GROUP BY wa_id ORDER BY last_msg DESC LIMIT 50";
-                        
-                        $stmt = $pdo->prepare($query);
-                        if ($search) {
-                            $stmt->bindValue(':search', "%$search%");
-                        }
-                        $stmt->execute();
-                        $threads = $stmt->fetchAll();
 
-                        foreach ($threads as $t): ?>
-                        <tr>
-                            <td><?php echo $t['wa_id']; ?></td>
-                            <td><?php echo $t['last_msg']; ?></td>
-                            <td><a href="?chat=<?php echo $t['wa_id']; ?>" class="btn secondary">Ver Chat</a></td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h3>Instrucciones del Sistema</h3>
+                            <p class="label">Edita manualmente el comportamiento y personalidad del bot</p>
+                        </div>
+                    </div>
+                    <form method="POST">
+                        <div class="form-group">
+                            <textarea class="form-control" name="system_prompt" rows="16" style="font-family:'SF Mono','Fira Code',monospace; font-size:13px;"><?php echo htmlspecialchars($prompt_content); ?></textarea>
+                        </div>
+                        <button type="submit" name="save_config" class="btn btn-primary">Guardar Instrucciones</button>
+                    </form>
+                </div>
 
-            <?php if (isset($_GET['chat'])): 
-                $chatId = $_GET['chat'];
-                $messages = $pdo->prepare("SELECT * FROM messages WHERE wa_id = ? ORDER BY created_at ASC LIMIT 50");
-                $messages->execute([$chatId]);
+            <?php elseif ($currentView === 'knowledge'): 
+                $files = array_diff(scandir(__DIR__ . '/knowledge'), array('.', '..', '.htaccess'));
                 ?>
-                <div class="card" id="chat-view">
-                    <h3>Chat con <?php echo htmlspecialchars($chatId); ?></h3>
-                    <div style="height: 400px; overflow-y: scroll; background: #f9f9f9; padding: 15px; border-radius: 8px;">
-                        <?php foreach ($messages as $m): 
-                            $isMedia = (strpos($m['content'], '[Imagen]') !== false || strpos($m['content'], '[Audio') !== false);
-                        ?>
-                            <div style="margin-bottom: 15px; text-align: <?php echo $m['role'] === 'user' ? 'left' : 'right'; ?>">
-                                <div style="display: inline-block; padding: 10px; border-radius: 8px; 
-                                    background: <?php echo $m['role'] === 'user' ? ($isMedia ? '#fff3cd' : '#eee') : '#176b5b'; ?>; 
-                                    color: <?php echo $m['role'] === 'user' ? '#000' : '#fff'; ?>; 
-                                    border: <?php echo $isMedia ? '1px solid #ffeeba' : 'none'; ?>;
-                                    max-width: 80%; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                                    
-                                    <?php if ($isMedia): ?>
-                                        <small style="display:block; margin-bottom:5px; opacity:0.7;">📎 Multimedia</small>
-                                    <?php endif; ?>
-
-                                    <?php echo nl2br(htmlspecialchars($m['content'])); ?>
-                                </div>
-                                <div style="font-size:10px; color:var(--muted); margin-top:4px;">
-                                    <?php echo date('H:i', strtotime($m['created_at'])); ?>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
+                <!-- ===== KNOWLEDGE VIEW ===== -->
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h3>Subir Documento</h3>
+                            <p class="label">Archivos .txt, .csv, .md — el bot usará esta información para responder</p>
+                        </div>
+                    </div>
+                    <form method="POST" enctype="multipart/form-data">
+                        <div class="form-group">
+                            <input type="file" name="knowledge_file" accept=".txt,.csv,.md,.docx" class="form-control" style="padding:10px 14px;">
+                        </div>
+                        <button type="submit" name="upload_file" class="btn btn-primary">Subir Archivo</button>
+                    </form>
+                    <div style="margin-top:16px;">
+                        <form method="POST">
+                            <button type="submit" name="sync_knowledge" class="btn btn-primary" style="width:100%;">
+                                Sincronizar Cerebro (Indexar todo)
+                            </button>
+                            <p style="font-size:11px; color:var(--text-4); text-align:center; margin-top:8px;">
+                                Pulsa después de subir o borrar archivos para que el bot se actualice
+                            </p>
+                        </form>
                     </div>
                 </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Archivos Actuales</h3>
+                    </div>
+                    <?php if (!empty($files)): ?>
+                        <?php foreach ($files as $f): ?>
+                            <div class="file-item">
+                                <div class="file-name">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--gold);"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                    <?php echo htmlspecialchars($f); ?>
+                                </div>
+                                <form method="POST" style="display:inline;" onsubmit="return confirm('¿Eliminar este archivo?');">
+                                    <input type="hidden" name="file_name" value="<?php echo htmlspecialchars($f); ?>">
+                                    <button type="submit" name="delete_file" class="btn btn-danger btn-sm">Eliminar</button>
+                                </form>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <div class="empty-state">
+                            <div class="icon">📄</div>
+                            <h4>No hay archivos</h4>
+                            <p>Sube documentos para que el bot tenga conocimiento de tu negocio</p>
+                        </div>
+                    <?php endif; ?>
+                </div>
+
+            <?php elseif ($currentView === 'inventory'): 
+                $inventory = $pdo->query("SELECT * FROM inventory ORDER BY id DESC")->fetchAll();
+                ?>
+                <!-- ===== INVENTORY VIEW ===== -->
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h3>Producto / Servicio</h3>
+                            <p class="label">El bot podrá ofrecer estos productos con precios en tiempo real</p>
+                        </div>
+                    </div>
+                    <form method="POST">
+                        <input type="hidden" name="item_id" id="inv_id" value="">
+
+                        <div class="form-group">
+                            <label>Nombre del producto</label>
+                            <input type="text" class="form-control" name="item_name" id="inv_name" placeholder="Ej: Consulta básica" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Descripción</label>
+                            <textarea class="form-control" name="description" id="inv_desc" rows="2" placeholder="Describe brevemente el producto o servicio"></textarea>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Precio ($)</label>
+                                <input type="number" step="0.01" class="form-control" name="price" id="inv_price" value="0.00">
+                            </div>
+                            <div class="form-group">
+                                <label>Stock</label>
+                                <input type="number" class="form-control" name="stock" id="inv_stock" value="0">
+                            </div>
+                        </div>
+
+                        <div style="display:flex; gap:10px;">
+                            <button type="submit" name="save_inventory" class="btn btn-primary">Guardar Producto</button>
+                            <button type="button" class="btn btn-secondary" onclick="clearInventoryForm()">Limpiar</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Lista de Productos</h3>
+                    </div>
+                    <?php if (!empty($inventory)): ?>
+                        <div style="overflow-x:auto;">
+                            <table>
+                                <thead>
+                                    <tr><th>Producto</th><th>Precio</th><th>Stock</th><th>Acción</th></tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($inventory as $i): ?>
+                                    <tr>
+                                        <td>
+                                            <strong style="color:var(--text);"><?php echo htmlspecialchars($i['item_name']); ?></strong>
+                                            <?php if($i['description']): ?>
+                                                <br><span style="font-size:12px; color:var(--text-3);"><?php echo htmlspecialchars($i['description']); ?></span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td style="font-weight:600; color:var(--gold);">$<?php echo number_format($i['price'], 2); ?></td>
+                                        <td>
+                                            <span class="badge <?php echo $i['stock'] > 0 ? 'badge-success' : 'badge-warning'; ?>">
+                                                <?php echo $i['stock']; ?> uds
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div style="display:flex; gap:6px;">
+                                                <button type="button" class="btn btn-secondary btn-sm" onclick="editInventory(<?php echo $i['id']; ?>, '<?php echo addslashes(htmlspecialchars($i['item_name'])); ?>', '<?php echo addslashes(htmlspecialchars($i['description'])); ?>', '<?php echo $i['price']; ?>', '<?php echo $i['stock']; ?>')">Editar</button>
+                                                <form method="POST" style="display:inline;" onsubmit="return confirm('¿Eliminar este producto?');">
+                                                    <input type="hidden" name="item_id" value="<?php echo $i['id']; ?>">
+                                                    <button type="submit" name="delete_inventory" class="btn btn-danger btn-sm">Eliminar</button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    <?php else: ?>
+                        <div class="empty-state">
+                            <div class="icon">📦</div>
+                            <h4>Inventario vacío</h4>
+                            <p>Agrega productos para que el bot pueda ofrecerlos a los clientes</p>
+                        </div>
+                    <?php endif; ?>
+                </div>
+
+            <?php elseif ($currentView === 'logs'): 
+                $logs = @file_get_contents(__DIR__ . '/debug.log') ?: "No hay registros aún.";
+                $logLines = array_reverse(explode("\n", trim($logs)));
+                $lastLogs = array_slice($logLines, 0, 50);
+                ?>
+                <!-- ===== LOGS VIEW ===== -->
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h3>Últimos 50 eventos</h3>
+                            <p class="label">Historial de depuración (Meta, Groq y errores del sistema)</p>
+                        </div>
+                        <a href="?view=logs" class="btn btn-secondary btn-sm">⟳ Refrescar</a>
+                    </div>
+                    <div class="log-viewer">
+                        <?php foreach ($lastLogs as $line): 
+                            if (empty($line)) continue;
+                            $cls = "log-line";
+                            if (strpos($line, 'ERROR') !== false) $cls .= " error";
+                            elseif (strpos($line, 'ÉXITO') !== false) $cls .= " success";
+                            elseif (strpos($line, 'GROQ') !== false || strpos($line, 'IA') !== false) $cls .= " info";
+                            elseif (strpos($line, 'FATAL') !== false) $cls .= " error";
+                        ?>
+                            <div class="<?php echo $cls; ?>"><?php echo htmlspecialchars($line); ?></div>
+                        <?php endforeach; ?>
+                        <?php if (empty($lastLogs)): ?>
+                            <div style="color:var(--text-4); text-align:center; padding:40px;">No hay logs disponibles</div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+            <?php elseif ($currentView === 'leads'): 
+                $allLeads = $pdo->query("SELECT * FROM leads ORDER BY created_at DESC")->fetchAll();
+                ?>
+                <!-- ===== LEADS VIEW ===== -->
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h3>Prospectos Detectados</h3>
+                            <p class="label">Usuarios calificados automáticamente por la IA</p>
+                        </div>
+                        <span class="badge badge-info"><?php echo count($allLeads); ?> leads</span>
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table>
+                            <thead>
+                                <tr><th>WhatsApp</th><th>Contacto</th><th>Resumen</th><th>Solicitud</th><th>Estado</th></tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($allLeads as $l): ?>
+                                <tr>
+                                    <td style="font-family:monospace; font-size:13px;"><?php echo $l['wa_id']; ?></td>
+                                    <td>
+                                        <strong style="color:var(--text);"><?php echo htmlspecialchars($l['nombre'] ?: 'Sin nombre'); ?></strong>
+                                        <?php if($l['negocio']): ?>
+                                            <br><span style="font-size:12px; color:var(--text-3);"><?php echo htmlspecialchars($l['negocio']); ?></span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td style="font-size:13px; max-width:200px;"><?php echo htmlspecialchars($l['resumen'] ?: 'N/A'); ?></td>
+                                    <td style="font-size:13px; max-width:200px; color:var(--gold);">
+                                        <strong><?php echo htmlspecialchars($l['solicitud'] ?: 'N/A'); ?></strong>
+                                    </td>
+                                    <td>
+                                        <span class="badge <?php echo $l['qualification_status'] === 'calificado' ? 'badge-success' : 'badge-warning'; ?>">
+                                            <?php echo strtoupper($l['qualification_status']); ?>
+                                        </span>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                                <?php if (empty($allLeads)): ?>
+                                    <tr><td colspan="5">
+                                        <div class="empty-state" style="padding:32px;">
+                                            <div class="icon">👥</div>
+                                            <h4>No hay leads aún</h4>
+                                            <p>Cuando la IA califique prospectos, aparecerán aquí</p>
+                                        </div>
+                                    </td></tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            <?php elseif ($currentView === 'api'): ?>
+                <!-- ===== API VIEW ===== -->
+                <div class="card card-glow">
+                    <div class="card-header">
+                        <div>
+                            <h3>Credenciales de Conexión</h3>
+                            <p class="label">Llaves maestras para WhatsApp Cloud API y Groq</p>
+                        </div>
+                        <span class="badge badge-warning">⚠️ Sensible</span>
+                    </div>
+                    <form method="POST">
+                        <div class="form-group">
+                            <label>WhatsApp API Token</label>
+                            <input type="text" class="form-control" name="wa_token" value="<?php echo htmlspecialchars($_ENV['WHATSAPP_API_TOKEN'] ?? getenv('WHATSAPP_API_TOKEN')); ?>" style="font-family:monospace; font-size:13px;">
+                        </div>
+                        <div class="form-group">
+                            <label>WhatsApp Phone Number ID</label>
+                            <input type="text" class="form-control" name="wa_phone_id" value="<?php echo htmlspecialchars($_ENV['WHATSAPP_PHONE_NUMBER_ID'] ?? getenv('WHATSAPP_PHONE_NUMBER_ID')); ?>">
+                        </div>
+
+                        <hr style="border:0; border-top:1px solid var(--border); margin:24px 0;">
+
+                        <div class="form-group">
+                            <label>Groq API Key</label>
+                            <input type="text" class="form-control" name="groq_key" value="<?php echo htmlspecialchars($_ENV['OPENAI_API_KEY'] ?? getenv('OPENAI_API_KEY')); ?>" style="font-family:monospace; font-size:13px;">
+                        </div>
+                        <div class="form-group">
+                            <label>Modelo de Texto</label>
+                            <input type="text" class="form-control" name="text_model" value="<?php echo htmlspecialchars($_ENV['OPENAI_MODEL'] ?? getenv('OPENAI_MODEL')); ?>">
+                        </div>
+
+                        <button type="submit" name="save_api" class="btn btn-primary">Guardar Credenciales</button>
+                    </form>
+                </div>
+
+            <?php else: ?>
+                <!-- ===== DASHBOARD VIEW ===== -->
+                <div class="kpi-grid">
+                    <div class="kpi-card">
+                        <div class="kpi-label">Mensajes Procesados</div>
+                        <div class="kpi-value"><?php echo $totalMsgs; ?></div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Leads Totales</div>
+                        <div class="kpi-value"><?php echo $totalLeads; ?></div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Calificados</div>
+                        <div class="kpi-value gold"><?php echo $qualifiedLeads; ?></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h3>Conversaciones Recientes</h3>
+                            <p class="label">Últimas conversaciones con clientes</p>
+                        </div>
+                        <form method="GET" style="display:flex; gap:8px;">
+                            <input type="text" class="form-control" name="search" placeholder="Buscar por ID..." value="<?php echo htmlspecialchars($_GET['search'] ?? ''); ?>" style="width:200px; padding:8px 12px; font-size:13px;">
+                            <button type="submit" class="btn btn-secondary btn-sm">Buscar</button>
+                        </form>
+                    </div>
+                    <?php 
+                    $search = $_GET['search'] ?? '';
+                    $query = "SELECT wa_id, MAX(created_at) as last_msg FROM messages ";
+                    if ($search) {
+                        $query .= " WHERE wa_id LIKE :search ";
+                    }
+                    $query .= " GROUP BY wa_id ORDER BY last_msg DESC LIMIT 50";
+                    
+                    $stmt = $pdo->prepare($query);
+                    if ($search) {
+                        $stmt->bindValue(':search', "%$search%");
+                    }
+                    $stmt->execute();
+                    $threads = $stmt->fetchAll();
+                    ?>
+                    <?php if (!empty($threads)): ?>
+                        <div style="overflow-x:auto;">
+                            <table>
+                                <thead>
+                                    <tr><th>WA ID</th><th>Última Actividad</th><th>Acción</th></tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($threads as $t): ?>
+                                    <tr>
+                                        <td style="font-family:monospace; font-size:13px;"><?php echo $t['wa_id']; ?></td>
+                                        <td style="color:var(--text-3);"><?php echo $t['last_msg']; ?></td>
+                                        <td>
+                                            <a href="?chat=<?php echo $t['wa_id']; ?>" class="btn btn-secondary btn-sm">Ver Chat</a>
+                                        </td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    <?php else: ?>
+                        <div class="empty-state">
+                            <div class="icon">💬</div>
+                            <h4>No hay conversaciones</h4>
+                            <p>Los mensajes aparecerán aquí cuando los clientes interactúen con el bot</p>
+                        </div>
+                    <?php endif; ?>
+                </div>
+
+                <?php if (isset($_GET['chat'])): 
+                    $chatId = $_GET['chat'];
+                    $messages = $pdo->prepare("SELECT * FROM messages WHERE wa_id = ? ORDER BY created_at ASC LIMIT 50");
+                    $messages->execute([$chatId]);
+                    ?>
+                    <div class="card">
+                        <div class="card-header">
+                            <div>
+                                <h3>Chat: <span style="font-family:monospace; color:var(--gold);"><?php echo htmlspecialchars($chatId); ?></span></h3>
+                                <p class="label">Historial de conversación</p>
+                            </div>
+                            <a href="admin.php" class="btn btn-secondary btn-sm">← Volver</a>
+                        </div>
+                        <div class="chat-container">
+                            <?php foreach ($messages as $m): 
+                                $isMedia = (strpos($m['content'], '[Imagen]') !== false || strpos($m['content'], '[Audio') !== false);
+                            ?>
+                                <div class="chat-msg <?php echo $m['role']; ?>">
+                                    <div class="chat-bubble <?php echo $isMedia ? 'media' : ''; ?>">
+                                        <?php if ($isMedia): ?>
+                                            <span style="opacity:0.6; font-size:11px; display:block; margin-bottom:4px;">📎 Multimedia</span>
+                                        <?php endif; ?>
+                                        <?php echo nl2br(htmlspecialchars($m['content'])); ?>
+                                    </div>
+                                    <div class="chat-time"><?php echo date('H:i', strtotime($m['created_at'])); ?></div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
             <?php endif; ?>
-        <?php endif; ?>
-    </main>
+        </div>
+    </div>
+
+    <script>
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('sidebarOverlay').classList.toggle('open');
+        }
+
+        function clearInventoryForm() {
+            document.getElementById('inv_id').value = '';
+            document.getElementById('inv_name').value = '';
+            document.getElementById('inv_desc').value = '';
+            document.getElementById('inv_price').value = '0.00';
+            document.getElementById('inv_stock').value = '0';
+        }
+
+        function editInventory(id, name, desc, price, stock) {
+            document.getElementById('inv_id').value = id;
+            document.getElementById('inv_name').value = name;
+            document.getElementById('inv_desc').value = desc;
+            document.getElementById('inv_price').value = price;
+            document.getElementById('inv_stock').value = stock;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Cerrar sidebar al hacer clic en un enlace en mobile
+        document.querySelectorAll('.nav-item').forEach(function(el) {
+            el.addEventListener('click', function() {
+                if (window.innerWidth <= 768) {
+                    toggleSidebar();
+                }
+            });
+        });
+    </script>
+
 </body>
 </html>
-    </main>
-</body>
-</html>
+<?php
+?>
