@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/knowledge.php';
+require_once __DIR__ . '/whatsapp.php';
 session_start();
 
 // 1. Autenticación Simple
@@ -334,6 +335,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_inventory'])) 
     $stmt = $pdo->prepare("DELETE FROM inventory WHERE id=?");
     $stmt->execute([$id]);
     $success_msg = "Producto eliminado.";
+}
+
+// 2.4 Lógica de Envío de Respuesta Manual desde Admin
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_reply'])) {
+    $chatId = $_POST['chat_id'] ?? '';
+    $replyText = trim($_POST['reply_text'] ?? '');
+    if ($chatId && $replyText) {
+        $pdo = getDB();
+        $sent = sendWhatsAppText($chatId, $replyText);
+        if ($sent) {
+            $stmt = $pdo->prepare("INSERT INTO messages (wa_id, role, content) VALUES (?, 'assistant', ?)");
+            $stmt->execute([$chatId, $replyText]);
+            $success_msg = "Respuesta enviada a $chatId";
+        } else {
+            $error_msg = "Error al enviar el mensaje. Revisa los logs.";
+        }
+    }
 }
 
 // 3. Lógica del Dashboard
@@ -1415,7 +1433,7 @@ $currentView = $_GET['view'] ?? 'dashboard';
                             </div>
                             <a href="admin.php" class="btn btn-secondary btn-sm">← Volver</a>
                         </div>
-                        <div class="chat-container">
+                        <div class="chat-container" id="chatContainer">
                             <?php foreach ($messages as $m): 
                                 $isMedia = (strpos($m['content'], '[Imagen]') !== false || strpos($m['content'], '[Audio') !== false);
                             ?>
@@ -1430,7 +1448,22 @@ $currentView = $_GET['view'] ?? 'dashboard';
                                 </div>
                             <?php endforeach; ?>
                         </div>
+                        <form method="POST" style="display:flex; gap:10px; margin-top:16px; align-items:flex-end;">
+                            <input type="hidden" name="chat_id" value="<?php echo htmlspecialchars($chatId); ?>">
+                            <div style="flex:1; position:relative;">
+                                <textarea name="reply_text" id="replyInput" rows="2" class="form-control" placeholder="Escribe tu respuesta y envía..." style="resize:none; min-height:44px; padding-right:48px;" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.form.querySelector('[name=send_reply]').click();}"></textarea>
+                            </div>
+                            <button type="submit" name="send_reply" class="btn btn-primary" style="height:44px; flex-shrink:0;">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                            </button>
+                        </form>
                     </div>
+                    <script>
+                        var container = document.getElementById('chatContainer');
+                        if (container) container.scrollTop = container.scrollHeight;
+                        var input = document.getElementById('replyInput');
+                        if (input) input.focus();
+                    </script>
                 <?php endif; ?>
             <?php endif; ?>
         </div>
