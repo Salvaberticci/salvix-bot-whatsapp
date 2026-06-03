@@ -354,7 +354,102 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_reply'])) {
     }
 }
 
-// 2.5 Lógica de Eliminar Conversación
+// 2.5 Lógica de Perfil de WhatsApp
+function getWhatsAppProfile() {
+    $url = "https://graph.facebook.com/v25.0/" . WA_PHONE_ID . "/whatsapp_business_profile?fields=about,description,email,websites,profile_picture_url";
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . WA_TOKEN]);
+    $resp = curl_exec($ch);
+    $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($http === 200) {
+        $data = json_decode($resp, true);
+        return $data['data'][0] ?? null;
+    }
+    return null;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_about'])) {
+    $about = trim($_POST['about_text'] ?? '');
+    if ($about) {
+        $url = "https://graph.facebook.com/v25.0/" . WA_PHONE_ID . "/whatsapp_business_profile";
+        $payload = json_encode(['about' => $about]);
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json',
+            'Authorization: Bearer ' . WA_TOKEN
+        ]);
+        $resp = curl_exec($ch);
+        $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if ($http === 200) {
+            $success_msg = "Estado/About actualizado correctamente.";
+        } else {
+            $error_msg = "Error al actualizar. Código HTTP: $http";
+        }
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_profile_pic'])) {
+    if (!empty($_FILES['profile_pic']['tmp_name'])) {
+        $file = $_FILES['profile_pic']['tmp_name'];
+        $filename = basename($_FILES['profile_pic']['name']);
+        $mime = mime_content_type($file);
+
+        // 1. Subir imagen a Meta como media
+        $url = "https://graph.facebook.com/v25.0/" . WA_PHONE_ID . "/media";
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, [
+            'messaging_product' => 'whatsapp',
+            'file' => new CURLFile($file, $mime, $filename),
+            'type' => $mime
+        ]);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . WA_TOKEN]);
+        $resp = curl_exec($ch);
+        $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($http === 200) {
+            $mediaData = json_decode($resp, true);
+            $mediaId = $mediaData['id'] ?? null;
+            if ($mediaId) {
+                // 2. Asignar como foto de perfil
+                $url2 = "https://graph.facebook.com/v25.0/" . WA_PHONE_ID . "/whatsapp_business_profile";
+                $payload2 = json_encode(['profile_picture_handle' => $mediaId]);
+                $ch2 = curl_init($url2);
+                curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch2, CURLOPT_POST, true);
+                curl_setopt($ch2, CURLOPT_POSTFIELDS, $payload2);
+                curl_setopt($ch2, CURLOPT_HTTPHEADER, [
+                    'Content-Type: application/json',
+                    'Authorization: Bearer ' . WA_TOKEN
+                ]);
+                $resp2 = curl_exec($ch2);
+                $http2 = curl_getinfo($ch2, CURLINFO_HTTP_CODE);
+                curl_close($ch2);
+                if ($http2 === 200) {
+                    $success_msg = "Foto de perfil actualizada correctamente.";
+                } else {
+                    $error_msg = "Error al asignar foto. Código HTTP: $http2";
+                }
+            } else {
+                $error_msg = "No se obtuvo ID de la imagen subida.";
+            }
+        } else {
+            $error_msg = "Error al subir imagen. Código HTTP: $http";
+        }
+    }
+}
+
+$waProfile = getWhatsAppProfile();
+
+// 2.6 Lógica de Eliminar Conversación
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_chat'])) {
     $chatId = $_POST['chat_id'] ?? '';
     if ($chatId) {
@@ -1063,6 +1158,48 @@ $currentView = $_GET['view'] ?? 'dashboard';
             <?php endif; ?>
 
             <?php if ($currentView === 'config'): ?>
+
+                <!-- ===== WHATSAPP PROFILE ===== -->
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h3>Perfil de WhatsApp del Bot</h3>
+                            <p class="label">Imagen y descripción que ven los clientes al chatear</p>
+                        </div>
+                        <span class="badge badge-info">WhatsApp</span>
+                    </div>
+                    <div style="display:flex; gap:24px; flex-wrap:wrap;">
+                        <div style="flex-shrink:0;">
+                            <div style="width:96px; height:96px; border-radius:50%; border:3px solid var(--border); overflow:hidden; background:var(--surface-3); display:flex; align-items:center; justify-content:center;">
+                                <?php if ($waProfile && !empty($waProfile['profile_picture_url'])): ?>
+                                    <img src="<?php echo htmlspecialchars($waProfile['profile_picture_url']); ?>" alt="Profile" style="width:100%; height:100%; object-fit:cover;">
+                                <?php else: ?>
+                                    <span style="font-size:36px; opacity:0.3;">📷</span>
+                                <?php endif; ?>
+                            </div>
+                            <form method="POST" enctype="multipart/form-data" style="margin-top:10px;">
+                                <label class="btn btn-secondary btn-sm" style="cursor:pointer; width:100%; justify-content:center; font-size:11px;">
+                                    Cambiar foto
+                                    <input type="file" name="profile_pic" accept="image/png,image/jpeg" style="display:none;" onchange="this.form.submit();">
+                                </label>
+                                <input type="hidden" name="upload_profile_pic" value="1">
+                            </form>
+                        </div>
+                        <div style="flex:1; min-width:200px;">
+                            <div style="font-size:11px; color:var(--text-4); text-transform:uppercase; letter-spacing:0.05em; font-weight:500;">Nombre del contacto</div>
+                            <div style="font-size:18px; font-weight:600; margin-top:4px; color:var(--text);"><?php echo htmlspecialchars(WA_PHONE_ID); ?></div>
+                            <div style="font-size:12px; color:var(--text-3); margin-top:2px;">ID del número</div>
+
+                            <form method="POST" style="margin-top:16px;">
+                                <div class="form-group" style="margin-bottom:10px;">
+                                    <label>Estado / About</label>
+                                    <input type="text" class="form-control" name="about_text" value="<?php echo htmlspecialchars($waProfile['about'] ?? ''); ?>" placeholder="Ej: Respondemos consultas de Lun-Vie 9-18hs" maxlength="139">
+                                </div>
+                                <button type="submit" name="update_about" class="btn btn-primary btn-sm">Guardar About</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- ===== CONFIG VIEW ===== -->
                 <div class="card card-glow">
