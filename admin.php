@@ -33,7 +33,7 @@ if (!isset($_SESSION['admin'])) {
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body {
                 font-family: 'Inter', system-ui, sans-serif;
-                background: #0c0c12;
+                background: #000000;
                 min-height: 100vh;
                 display: flex;
                 align-items: center;
@@ -46,7 +46,7 @@ if (!isset($_SESSION['admin'])) {
                 position: absolute;
                 width: 600px;
                 height: 600px;
-                background: radial-gradient(circle, rgba(201, 168, 76, 0.06) 0%, transparent 70%);
+                background: radial-gradient(circle, rgba(209, 36, 36, 0.08) 0%, transparent 70%);
                 top: -200px;
                 right: -200px;
                 pointer-events: none;
@@ -56,7 +56,7 @@ if (!isset($_SESSION['admin'])) {
                 position: absolute;
                 width: 500px;
                 height: 500px;
-                background: radial-gradient(circle, rgba(96, 165, 250, 0.04) 0%, transparent 70%);
+                background: radial-gradient(circle, rgba(138, 138, 138, 0.04) 0%, transparent 70%);
                 bottom: -200px;
                 left: -200px;
                 pointer-events: none;
@@ -75,7 +75,7 @@ if (!isset($_SESSION['admin'])) {
             .login-logo {
                 width: 56px;
                 height: 56px;
-                background: linear-gradient(135deg, #c9a84c, #dbb95d);
+                background: linear-gradient(135deg, #D12424, #E03030);
                 border-radius: 16px;
                 display: flex;
                 align-items: center;
@@ -83,24 +83,24 @@ if (!isset($_SESSION['admin'])) {
                 margin: 0 auto 16px;
                 font-size: 22px;
                 font-weight: 700;
-                color: #0c0c12;
-                box-shadow: 0 8px 24px rgba(201, 168, 76, 0.2);
+                color: #FFFFFF;
+                box-shadow: 0 8px 24px rgba(209, 36, 36, 0.3);
             }
             .login-header h1 {
-                color: #f0ece4;
+                color: #FFFFFF;
                 font-size: 22px;
                 font-weight: 600;
                 letter-spacing: -0.3px;
             }
             .login-header p {
-                color: #5c5866;
+                color: #8A8A8A;
                 font-size: 14px;
                 margin-top: 6px;
             }
             .login-card {
-                background: rgba(22, 22, 31, 0.8);
+                background: rgba(13, 13, 13, 0.9);
                 backdrop-filter: blur(20px);
-                border: 1px solid rgba(42, 42, 58, 0.6);
+                border: 1px solid rgba(42, 42, 42, 0.6);
                 border-radius: 20px;
                 padding: 32px;
                 box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4);
@@ -120,7 +120,7 @@ if (!isset($_SESSION['admin'])) {
             }
             .form-group label {
                 display: block;
-                color: #8a8692;
+                color: #8A8A8A;
                 font-size: 12px;
                 font-weight: 500;
                 text-transform: uppercase;
@@ -130,29 +130,29 @@ if (!isset($_SESSION['admin'])) {
             .form-group input {
                 width: 100%;
                 padding: 14px 16px;
-                background: rgba(12, 12, 18, 0.6);
-                border: 1px solid #2a2a3a;
+                background: rgba(0, 0, 0, 0.6);
+                border: 1px solid #2a2a2a;
                 border-radius: 12px;
-                color: #f0ece4;
+                color: #FFFFFF;
                 font-size: 15px;
                 font-family: 'Inter', sans-serif;
                 transition: all 0.2s ease;
                 outline: none;
             }
             .form-group input:focus {
-                border-color: #c9a84c;
-                box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.1);
+                border-color: #D12424;
+                box-shadow: 0 0 0 3px rgba(209, 36, 36, 0.15);
             }
             .form-group input::placeholder {
-                color: #5c5866;
+                color: #555555;
             }
             .login-btn {
                 width: 100%;
                 padding: 14px;
-                background: linear-gradient(135deg, #c9a84c, #dbb95d);
+                background: linear-gradient(135deg, #D12424, #E03030);
                 border: none;
                 border-radius: 12px;
-                color: #0c0c12;
+                color: #FFFFFF;
                 font-family: 'Inter', sans-serif;
                 font-size: 15px;
                 font-weight: 600;
@@ -161,7 +161,7 @@ if (!isset($_SESSION['admin'])) {
             }
             .login-btn:hover {
                 transform: translateY(-1px);
-                box-shadow: 0 8px 24px rgba(201, 168, 76, 0.3);
+                box-shadow: 0 8px 24px rgba(209, 36, 36, 0.3);
             }
             .login-btn:active {
                 transform: translateY(0);
@@ -361,22 +361,22 @@ $currentView = $_GET['view'] ?? 'dashboard';
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #0c0c12;
-            --surface: #16161f;
-            --surface-2: #1a1a26;
-            --surface-3: #1e1e2a;
-            --border: #2a2a3a;
-            --border-light: #36364a;
-            --gold: #c9a84c;
-            --gold-hover: #dbb95d;
-            --gold-muted: rgba(201, 168, 76, 0.12);
-            --text: #f0ece4;
-            --text-2: #b4aeb8;
-            --text-3: #8a8692;
-            --text-4: #5c5866;
-            --danger: #ef4444;
+            --bg: #000000;
+            --surface: #0d0d0d;
+            --surface-2: #141414;
+            --surface-3: #1a1a1a;
+            --border: #2a2a2a;
+            --border-light: #3a3a3a;
+            --accent: #D12424;
+            --accent-hover: #E03030;
+            --accent-muted: rgba(209, 36, 36, 0.12);
+            --text: #FFFFFF;
+            --text-2: #CCCCCC;
+            --text-3: #8A8A8A;
+            --text-4: #555555;
+            --danger: #D12424;
             --success: #4ade80;
-            --info: #60a5fa;
+            --info: #8A8A8A;
             --sidebar-width: 260px;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -413,14 +413,14 @@ $currentView = $_GET['view'] ?? 'dashboard';
         .sidebar-logo {
             width: 40px;
             height: 40px;
-            background: linear-gradient(135deg, var(--gold), var(--gold-hover));
+            background: linear-gradient(135deg, var(--accent), var(--accent-hover));
             border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 800;
             font-size: 16px;
-            color: #0c0c12;
+            color: #FFFFFF;
             flex-shrink: 0;
         }
         .sidebar-brand-text h2 {
@@ -465,8 +465,8 @@ $currentView = $_GET['view'] ?? 'dashboard';
             color: var(--text);
         }
         .nav-item.active {
-            background: var(--gold-muted);
-            color: var(--gold);
+            background: var(--accent-muted);
+            color: var(--accent);
         }
         .nav-item .nav-icon {
             width: 20px;
@@ -477,8 +477,8 @@ $currentView = $_GET['view'] ?? 'dashboard';
         .nav-item.active .nav-icon { opacity: 1; }
         .nav-item .nav-badge {
             margin-left: auto;
-            background: var(--gold-muted);
-            color: var(--gold);
+            background: var(--accent-muted);
+            color: var(--accent);
             font-size: 11px;
             font-weight: 600;
             padding: 2px 8px;
@@ -547,8 +547,8 @@ $currentView = $_GET['view'] ?? 'dashboard';
             color: var(--text-3);
         }
         .card-glow {
-            border-color: rgba(201, 168, 76, 0.15);
-            box-shadow: 0 0 40px rgba(201, 168, 76, 0.03);
+            border-color: rgba(209, 36, 36, 0.2);
+            box-shadow: 0 0 40px rgba(209, 36, 36, 0.05);
         }
 
         .kpi-grid {
@@ -573,7 +573,7 @@ $currentView = $_GET['view'] ?? 'dashboard';
             left: 0;
             right: 0;
             height: 3px;
-            background: linear-gradient(90deg, transparent, var(--gold), transparent);
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
             opacity: 0;
             transition: opacity 0.3s ease;
         }
@@ -592,7 +592,7 @@ $currentView = $_GET['view'] ?? 'dashboard';
             letter-spacing: -0.5px;
             margin-top: 8px;
         }
-        .kpi-value.gold { color: var(--gold); }
+        .kpi-value.accent { color: var(--accent); }
 
         table {
             width: 100%;
@@ -635,11 +635,11 @@ $currentView = $_GET['view'] ?? 'dashboard';
             line-height: 1;
         }
         .btn-primary {
-            background: linear-gradient(135deg, var(--gold), var(--gold-hover));
-            color: #0c0c12;
+            background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+            color: #FFFFFF;
         }
         .btn-primary:hover {
-            box-shadow: 0 4px 16px rgba(201, 168, 76, 0.25);
+            box-shadow: 0 4px 16px rgba(209, 36, 36, 0.3);
             transform: translateY(-1px);
         }
         .btn-secondary {
@@ -685,9 +685,9 @@ $currentView = $_GET['view'] ?? 'dashboard';
             border: 1px solid rgba(251, 191, 36, 0.2);
         }
         .badge-info {
-            background: rgba(96, 165, 250, 0.1);
+            background: rgba(138, 138, 138, 0.1);
             color: var(--info);
-            border: 1px solid rgba(96, 165, 250, 0.2);
+            border: 1px solid rgba(138, 138, 138, 0.2);
         }
 
         .form-group {
@@ -715,8 +715,8 @@ $currentView = $_GET['view'] ?? 'dashboard';
             outline: none;
         }
         .form-control:focus {
-            border-color: var(--gold);
-            box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.08);
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(209, 36, 36, 0.12);
         }
         .form-control::placeholder { color: var(--text-4); }
         textarea.form-control {
@@ -790,9 +790,9 @@ $currentView = $_GET['view'] ?? 'dashboard';
             border-bottom-left-radius: 4px;
         }
         .chat-msg.assistant .chat-bubble {
-            background: linear-gradient(135deg, rgba(201, 168, 76, 0.15), rgba(201, 168, 76, 0.08));
+            background: linear-gradient(135deg, rgba(209, 36, 36, 0.15), rgba(209, 36, 36, 0.06));
             color: var(--text);
-            border: 1px solid rgba(201, 168, 76, 0.15);
+            border: 1px solid rgba(209, 36, 36, 0.15);
             border-bottom-right-radius: 4px;
         }
         .chat-bubble.media {
@@ -1105,7 +1105,7 @@ $currentView = $_GET['view'] ?? 'dashboard';
                         <?php foreach ($files as $f): ?>
                             <div class="file-item">
                                 <div class="file-name">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--gold);"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                                     <?php echo htmlspecialchars($f); ?>
                                 </div>
                                 <form method="POST" style="display:inline;" onsubmit="return confirm('¿Eliminar este archivo?');">
@@ -1184,7 +1184,7 @@ $currentView = $_GET['view'] ?? 'dashboard';
                                                 <br><span style="font-size:12px; color:var(--text-3);"><?php echo htmlspecialchars($i['description']); ?></span>
                                             <?php endif; ?>
                                         </td>
-                                        <td style="font-weight:600; color:var(--gold);">$<?php echo number_format($i['price'], 2); ?></td>
+                                        <td style="font-weight:600; color:var(--accent);">$<?php echo number_format($i['price'], 2); ?></td>
                                         <td>
                                             <span class="badge <?php echo $i['stock'] > 0 ? 'badge-success' : 'badge-warning'; ?>">
                                                 <?php echo $i['stock']; ?> uds
@@ -1272,7 +1272,7 @@ $currentView = $_GET['view'] ?? 'dashboard';
                                         <?php endif; ?>
                                     </td>
                                     <td style="font-size:13px; max-width:200px;"><?php echo htmlspecialchars($l['resumen'] ?: 'N/A'); ?></td>
-                                    <td style="font-size:13px; max-width:200px; color:var(--gold);">
+                                    <td style="font-size:13px; max-width:200px; color:var(--accent);">
                                         <strong><?php echo htmlspecialchars($l['solicitud'] ?: 'N/A'); ?></strong>
                                     </td>
                                     <td>
@@ -1344,7 +1344,7 @@ $currentView = $_GET['view'] ?? 'dashboard';
                     </div>
                     <div class="kpi-card">
                         <div class="kpi-label">Calificados</div>
-                        <div class="kpi-value gold"><?php echo $qualifiedLeads; ?></div>
+                        <div class="kpi-value accent"><?php echo $qualifiedLeads; ?></div>
                     </div>
                 </div>
 
@@ -1410,7 +1410,7 @@ $currentView = $_GET['view'] ?? 'dashboard';
                     <div class="card">
                         <div class="card-header">
                             <div>
-                                <h3>Chat: <span style="font-family:monospace; color:var(--gold);"><?php echo htmlspecialchars($chatId); ?></span></h3>
+                                <h3>Chat: <span style="font-family:monospace; color:var(--accent);"><?php echo htmlspecialchars($chatId); ?></span></h3>
                                 <p class="label">Historial de conversación</p>
                             </div>
                             <a href="admin.php" class="btn btn-secondary btn-sm">← Volver</a>
