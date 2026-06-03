@@ -356,18 +356,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_reply'])) {
 
 // 2.5 Lógica de Perfil de WhatsApp
 function getWhatsAppProfile() {
-    $url = "https://graph.facebook.com/v25.0/" . WA_PHONE_ID . "/whatsapp_business_profile?fields=about,description,email,websites,profile_picture_url";
-    $ch = curl_init($url);
+    $profileUrl = "https://graph.facebook.com/v25.0/" . WA_PHONE_ID . "/whatsapp_business_profile?fields=about,description,email,websites,profile_picture_url";
+    $ch = curl_init($profileUrl);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . WA_TOKEN]);
     $resp = curl_exec($ch);
     $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
+    $profile = null;
     if ($http === 200) {
         $data = json_decode($resp, true);
-        return $data['data'][0] ?? null;
+        $profile = $data['data'][0] ?? [];
     }
-    return null;
+
+    // También obtener info del número (display name)
+    $phoneUrl = "https://graph.facebook.com/v25.0/" . WA_PHONE_ID . "?fields=verified_name,display_phone_number";
+    $ch2 = curl_init($phoneUrl);
+    curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch2, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . WA_TOKEN]);
+    $resp2 = curl_exec($ch2);
+    curl_close($ch2);
+    $phoneInfo = json_decode($resp2, true);
+
+    return array_merge($profile ?: [], $phoneInfo ?: []);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_about'])) {
@@ -400,49 +411,67 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_profile_pic'])
         $filename = basename($_FILES['profile_pic']['name']);
         $mime = mime_content_type($file);
 
-        // 1. Subir imagen a Meta como media
-        $url = "https://graph.facebook.com/v25.0/" . WA_PHONE_ID . "/media";
-        $ch = curl_init($url);
+        // Obtener WABA ID desde el número de teléfono
+        $ch = curl_init("https://graph.facebook.com/v25.0/" . WA_PHONE_ID . "?fields=id,whatsapp_business_account");
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, [
-            'messaging_product' => 'whatsapp',
-            'file' => new CURLFile($file, $mime, $filename),
-            'type' => $mime
-        ]);
         curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . WA_TOKEN]);
         $resp = curl_exec($ch);
-        $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
+        $phoneData = json_decode($resp, true);
+        $wabaId = $phoneData['whatsapp_business_account']['id'] ?? null;
 
-        if ($http === 200) {
-            $mediaData = json_decode($resp, true);
-            $mediaId = $mediaData['id'] ?? null;
-            if ($mediaId) {
-                // 2. Asignar como foto de perfil
-                $url2 = "https://graph.facebook.com/v25.0/" . WA_PHONE_ID . "/whatsapp_business_profile";
-                $payload2 = json_encode(['profile_picture_handle' => $mediaId]);
-                $ch2 = curl_init($url2);
-                curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);
-                curl_setopt($ch2, CURLOPT_POST, true);
-                curl_setopt($ch2, CURLOPT_POSTFIELDS, $payload2);
-                curl_setopt($ch2, CURLOPT_HTTPHEADER, [
-                    'Content-Type: application/json',
-                    'Authorization: Bearer ' . WA_TOKEN
-                ]);
-                $resp2 = curl_exec($ch2);
-                $http2 = curl_getinfo($ch2, CURLINFO_HTTP_CODE);
-                curl_close($ch2);
-                if ($http2 === 200) {
-                    $success_msg = "Foto de perfil actualizada correctamente.";
+        if (!$wabaId) {
+            $error_msg = "No se pudo obtener el ID de la cuenta de negocio de WhatsApp.";
+        } else {
+            // 1. Subir imagen al media endpoint del WABA (no del phone number)
+            $url = "https://graph.facebook.com/v25.0/" . $wabaId . "/media";
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, [
+                'messaging_product' => 'whatsapp',
+                'file' => new CURLFile($file, $mime, $filename),
+                'type' => $mime
+            ]);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . WA_TOKEN]);
+            $resp = curl_exec($ch);
+            $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            if ($http === 200) {
+                $mediaData = json_decode($resp, true);
+                $mediaId = $mediaData['id'] ?? null;
+                if ($mediaId) {
+                    // 2. Asignar como foto de perfil usando el handle correcto
+                    $url2 = "https://graph.facebook.com/v25.0/" . WA_PHONE_ID . "/whatsapp_business_profile";
+                    $payload2 = json_encode(['profile_picture_handle' => $mediaId]);
+                    $ch2 = curl_init($url2);
+                    curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch2, CURLOPT_POST, true);
+                    curl_setopt($ch2, CURLOPT_POSTFIELDS, $payload2);
+                    curl_setopt($ch2, CURLOPT_HTTPHEADER, [
+                        'Content-Type: application/json',
+                        'Authorization: Bearer ' . WA_TOKEN
+                    ]);
+                    $resp2 = curl_exec($ch2);
+                    $http2 = curl_getinfo($ch2, CURLINFO_HTTP_CODE);
+                    curl_close($ch2);
+                    if ($http2 === 200) {
+                        $success_msg = "Foto de perfil actualizada correctamente.";
+                    } else {
+                        $errorData = json_decode($resp2, true);
+                        $errorDetail = $errorData['error']['message'] ?? "Código HTTP: $http2";
+                        $error_msg = "Meta rechazó la foto: $errorDetail";
+                        logger("ERROR subir foto perfil: " . $resp2);
+                    }
                 } else {
-                    $error_msg = "Error al asignar foto. Código HTTP: $http2";
+                    $error_msg = "No se obtuvo ID de la imagen subida.";
                 }
             } else {
-                $error_msg = "No se obtuvo ID de la imagen subida.";
+                $errorData = json_decode($resp, true);
+                $errorDetail = $errorData['error']['message'] ?? "Código HTTP: $http";
+                $error_msg = "Error al subir imagen a Meta: $errorDetail";
             }
-        } else {
-            $error_msg = "Error al subir imagen. Código HTTP: $http";
         }
     }
 }
@@ -1187,8 +1216,8 @@ $currentView = $_GET['view'] ?? 'dashboard';
                         </div>
                         <div style="flex:1; min-width:200px;">
                             <div style="font-size:11px; color:var(--text-4); text-transform:uppercase; letter-spacing:0.05em; font-weight:500;">Nombre del contacto</div>
-                            <div style="font-size:18px; font-weight:600; margin-top:4px; color:var(--text);"><?php echo htmlspecialchars(WA_PHONE_ID); ?></div>
-                            <div style="font-size:12px; color:var(--text-3); margin-top:2px;">ID del número</div>
+                            <div style="font-size:20px; font-weight:700; margin-top:4px; color:var(--text);"><?php echo htmlspecialchars($waProfile['verified_name'] ?? 'Sin nombre'); ?></div>
+                            <div style="font-size:13px; color:var(--text-3); margin-top:2px;"><?php echo htmlspecialchars($waProfile['display_phone_number'] ?? WA_PHONE_ID); ?></div>
 
                             <form method="POST" style="margin-top:16px;">
                                 <div class="form-group" style="margin-bottom:10px;">
