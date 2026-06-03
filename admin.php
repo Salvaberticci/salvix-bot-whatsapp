@@ -354,6 +354,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_reply'])) {
     }
 }
 
+// 2.5 Lógica de Eliminar Conversación
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_chat'])) {
+    $chatId = $_POST['chat_id'] ?? '';
+    if ($chatId) {
+        $pdo = getDB();
+        $stmt = $pdo->prepare("DELETE FROM messages WHERE wa_id = ?");
+        $stmt->execute([$chatId]);
+        $success_msg = "Conversación con $chatId eliminada.";
+    }
+}
+
 // 3. Lógica del Dashboard
 $pdo = getDB();
 $prompt_content = @file_get_contents(__DIR__ . '/prompts/system.md') ?: "";
@@ -1404,7 +1415,13 @@ $currentView = $_GET['view'] ?? 'dashboard';
                                         <td style="font-family:monospace; font-size:13px;"><?php echo $t['wa_id']; ?></td>
                                         <td style="color:var(--text-3);"><?php echo $t['last_msg']; ?></td>
                                         <td>
-                                            <a href="?chat=<?php echo $t['wa_id']; ?>" class="btn btn-secondary btn-sm">Ver Chat</a>
+                                            <div style="display:flex; gap:6px;">
+                                                <a href="?chat=<?php echo $t['wa_id']; ?>" class="btn btn-secondary btn-sm">Ver Chat</a>
+                                                <form method="POST" style="display:inline;" onsubmit="return confirm('¿Eliminar toda la conversación con <?php echo addslashes($t['wa_id']); ?>?');">
+                                                    <input type="hidden" name="chat_id" value="<?php echo $t['wa_id']; ?>">
+                                                    <button type="submit" name="delete_chat" class="btn btn-danger btn-sm">Eliminar</button>
+                                                </form>
+                                            </div>
                                         </td>
                                     </tr>
                                     <?php endforeach; ?>
