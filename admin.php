@@ -76,16 +76,10 @@ if (!isset($_SESSION['admin'])) {
             .login-logo {
                 width: 56px;
                 height: 56px;
-                background: linear-gradient(135deg, #38bdf8, #7dd3fc);
-                border-radius: 16px;
+                margin: 0 auto 16px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                margin: 0 auto 16px;
-                font-size: 22px;
-                font-weight: 700;
-                color: #FFFFFF;
-                box-shadow: 0 8px 24px rgba(56, 189, 248, 0.3);
             }
             .login-header h1 {
                 color: #FFFFFF;
@@ -175,7 +169,7 @@ if (!isset($_SESSION['admin'])) {
     <body>
         <div class="login-container">
             <div class="login-header">
-                <div class="login-logo">S</div>
+                <div class="login-logo"><img src="img/logo.png" alt="Salvix Wireless IA Agent" style="width:100%;height:100%;object-fit:contain;"></div>
                 <h1>Salvix Wireless IA Agent Admin</h1>
                 <p>Panel de control del bot</p>
             </div>
@@ -442,15 +436,9 @@ $currentView = $_GET['view'] ?? 'dashboard';
         .sidebar-logo {
             width: 40px;
             height: 40px;
-            background: linear-gradient(135deg, var(--accent), var(--accent-hover));
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 800;
-            font-size: 16px;
-            color: #FFFFFF;
             flex-shrink: 0;
+            border-radius: 12px;
+            overflow: hidden;
         }
         .sidebar-brand-text h2 {
             font-size: 16px;
@@ -970,7 +958,7 @@ $currentView = $_GET['view'] ?? 'dashboard';
     <!-- ===== SIDEBAR ===== -->
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-brand">
-            <div class="sidebar-logo">S</div>
+            <div class="sidebar-logo"><img src="img/logo.png" alt="Salvix Wireless IA Agent" style="width:100%;height:100%;object-fit:contain;"></div>
             <div class="sidebar-brand-text">
                 <h2>Salvix Wireless IA Agent</h2>
                 <span>Admin Panel</span>
