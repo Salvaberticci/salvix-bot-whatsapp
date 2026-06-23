@@ -24,7 +24,7 @@ if (!isset($_SESSION['admin'])) {
     <!DOCTYPE html>
     <html lang="es">
     <head>
-        <title>Salvix Admin - Login</title>
+        <title>Salvix Wireless IA Agent Admin - Login</title>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -47,7 +47,7 @@ if (!isset($_SESSION['admin'])) {
                 position: absolute;
                 width: 600px;
                 height: 600px;
-                background: radial-gradient(circle, rgba(209, 36, 36, 0.08) 0%, transparent 70%);
+                background: radial-gradient(circle, rgba(56, 189, 248, 0.08) 0%, transparent 70%);
                 top: -200px;
                 right: -200px;
                 pointer-events: none;
@@ -76,7 +76,7 @@ if (!isset($_SESSION['admin'])) {
             .login-logo {
                 width: 56px;
                 height: 56px;
-                background: linear-gradient(135deg, #D12424, #E03030);
+                background: linear-gradient(135deg, #38bdf8, #7dd3fc);
                 border-radius: 16px;
                 display: flex;
                 align-items: center;
@@ -85,7 +85,7 @@ if (!isset($_SESSION['admin'])) {
                 font-size: 22px;
                 font-weight: 700;
                 color: #FFFFFF;
-                box-shadow: 0 8px 24px rgba(209, 36, 36, 0.3);
+                box-shadow: 0 8px 24px rgba(56, 189, 248, 0.3);
             }
             .login-header h1 {
                 color: #FFFFFF;
@@ -107,9 +107,9 @@ if (!isset($_SESSION['admin'])) {
                 box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4);
             }
             .login-error {
-                background: rgba(239, 68, 68, 0.1);
-                border: 1px solid rgba(239, 68, 68, 0.2);
-                color: #fca5a5;
+                background: rgba(56, 189, 248, 0.1);
+                border: 1px solid rgba(56, 189, 248, 0.2);
+                color: #bae6fd;
                 padding: 12px 16px;
                 border-radius: 10px;
                 font-size: 13px;
@@ -141,8 +141,8 @@ if (!isset($_SESSION['admin'])) {
                 outline: none;
             }
             .form-group input:focus {
-                border-color: #D12424;
-                box-shadow: 0 0 0 3px rgba(209, 36, 36, 0.15);
+                border-color: #38bdf8;
+                box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
             }
             .form-group input::placeholder {
                 color: #555555;
@@ -150,7 +150,7 @@ if (!isset($_SESSION['admin'])) {
             .login-btn {
                 width: 100%;
                 padding: 14px;
-                background: linear-gradient(135deg, #D12424, #E03030);
+                background: linear-gradient(135deg, #38bdf8, #7dd3fc);
                 border: none;
                 border-radius: 12px;
                 color: #FFFFFF;
@@ -162,7 +162,7 @@ if (!isset($_SESSION['admin'])) {
             }
             .login-btn:hover {
                 transform: translateY(-1px);
-                box-shadow: 0 8px 24px rgba(209, 36, 36, 0.3);
+                box-shadow: 0 8px 24px rgba(56, 189, 248, 0.3);
             }
             .login-btn:active {
                 transform: translateY(0);
@@ -176,7 +176,7 @@ if (!isset($_SESSION['admin'])) {
         <div class="login-container">
             <div class="login-header">
                 <div class="login-logo">S</div>
-                <h1>Salvix Admin</h1>
+                <h1>Salvix Wireless IA Agent Admin</h1>
                 <p>Panel de control del bot</p>
             </div>
             <div class="login-card">
@@ -382,7 +382,7 @@ $currentView = $_GET['view'] ?? 'dashboard';
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <title>Salvix Admin</title>
+    <title>Salvix Wireless IA Agent Admin</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -396,14 +396,14 @@ $currentView = $_GET['view'] ?? 'dashboard';
             --surface-3: #1a1a1a;
             --border: #2a2a2a;
             --border-light: #3a3a3a;
-            --accent: #D12424;
-            --accent-hover: #E03030;
-            --accent-muted: rgba(209, 36, 36, 0.12);
+            --accent: #38bdf8;
+            --accent-hover: #7dd3fc;
+            --accent-muted: rgba(56, 189, 248, 0.12);
             --text: #FFFFFF;
             --text-2: #CCCCCC;
             --text-3: #8A8A8A;
             --text-4: #555555;
-            --danger: #D12424;
+            --danger: #38bdf8;
             --success: #4ade80;
             --info: #8A8A8A;
             --sidebar-width: 260px;
@@ -576,8 +576,8 @@ $currentView = $_GET['view'] ?? 'dashboard';
             color: var(--text-3);
         }
         .card-glow {
-            border-color: rgba(209, 36, 36, 0.2);
-            box-shadow: 0 0 40px rgba(209, 36, 36, 0.05);
+            border-color: rgba(56, 189, 248, 0.2);
+            box-shadow: 0 0 40px rgba(56, 189, 248, 0.05);
         }
 
         .kpi-grid {
@@ -668,7 +668,7 @@ $currentView = $_GET['view'] ?? 'dashboard';
             color: #FFFFFF;
         }
         .btn-primary:hover {
-            box-shadow: 0 4px 16px rgba(209, 36, 36, 0.3);
+            box-shadow: 0 4px 16px rgba(56, 189, 248, 0.3);
             transform: translateY(-1px);
         }
         .btn-secondary {
@@ -681,12 +681,12 @@ $currentView = $_GET['view'] ?? 'dashboard';
             color: var(--text);
         }
         .btn-danger {
-            background: rgba(239, 68, 68, 0.12);
+            background: rgba(56, 189, 248, 0.12);
             color: var(--danger);
-            border: 1px solid rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(56, 189, 248, 0.2);
         }
         .btn-danger:hover {
-            background: rgba(239, 68, 68, 0.2);
+            background: rgba(56, 189, 248, 0.2);
         }
         .btn-sm {
             padding: 6px 12px;
@@ -745,7 +745,7 @@ $currentView = $_GET['view'] ?? 'dashboard';
         }
         .form-control:focus {
             border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(209, 36, 36, 0.12);
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
         }
         .form-control::placeholder { color: var(--text-4); }
         textarea.form-control {
@@ -781,8 +781,8 @@ $currentView = $_GET['view'] ?? 'dashboard';
             color: var(--success);
         }
         .alert-error {
-            background: rgba(239, 68, 68, 0.08);
-            border: 1px solid rgba(239, 68, 68, 0.15);
+            background: rgba(56, 189, 248, 0.08);
+            border: 1px solid rgba(56, 189, 248, 0.15);
             color: var(--danger);
         }
 
@@ -819,9 +819,9 @@ $currentView = $_GET['view'] ?? 'dashboard';
             border-bottom-left-radius: 4px;
         }
         .chat-msg.assistant .chat-bubble {
-            background: linear-gradient(135deg, rgba(209, 36, 36, 0.15), rgba(209, 36, 36, 0.06));
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.15), rgba(56, 189, 248, 0.06));
             color: var(--text);
-            border: 1px solid rgba(209, 36, 36, 0.15);
+            border: 1px solid rgba(56, 189, 248, 0.15);
             border-bottom-right-radius: 4px;
         }
         .chat-bubble.media {
@@ -972,7 +972,7 @@ $currentView = $_GET['view'] ?? 'dashboard';
         <div class="sidebar-brand">
             <div class="sidebar-logo">S</div>
             <div class="sidebar-brand-text">
-                <h2>Salvix</h2>
+                <h2>Salvix Wireless IA Agent</h2>
                 <span>Admin Panel</span>
             </div>
         </div>

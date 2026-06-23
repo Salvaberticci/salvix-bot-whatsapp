@@ -1,4 +1,4 @@
-# Salvix WhatsApp Bot (PHP Version)
+# Salvix Wireless IA Agent WhatsApp Bot (PHP Version)
 
 Plataforma de automatización de WhatsApp basada en PHP, diseñada para correr eficientemente en hosting compartido (como Namecheap) y conectar con modelos de IA de última generación.
 
@@ -30,4 +30,4 @@ Plataforma de automatización de WhatsApp basada en PHP, diseñada para correr e
 El proyecto incluye un sistema de protección para el archivo `.env` mediante `.htaccess` y está preparado para no exponer datos sensibles en repositorios públicos.
 
 ---
-*Desarrollado por Salvix - 2026*
+*Desarrollado por Salvix Wireless IA Agent - 2026*

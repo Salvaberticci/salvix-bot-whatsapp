@@ -45,7 +45,7 @@ try {
         FULLTEXT (content)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
-    echo "<h2 style='color:green'>¡Base de datos de Salvix (Versión RAG) lista con éxito!</h2>";
+    echo "<h2 style='color:green'>¡Base de datos de Salvix Wireless IA Agent (Versión RAG) lista con éxito!</h2>";
     echo "<p>Ya puedes cerrar esta pestaña y volver al panel de admin.</p>";
 
 } catch (PDOException $e) {
