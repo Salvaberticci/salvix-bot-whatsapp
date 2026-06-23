@@ -74,8 +74,8 @@ if (!isset($_SESSION['admin'])) {
                 margin-bottom: 32px;
             }
             .login-logo {
-                width: 56px;
-                height: 56px;
+                width: 280px;
+                height: 280px;
                 margin: 0 auto 16px;
                 display: flex;
                 align-items: center;
