@@ -7,7 +7,7 @@ require_once __DIR__ . '/knowledge.php';
  */
 
 function buildSystemPrompt($userMessage = "") {
-    $prompt = @file_get_contents(__DIR__ . '/prompts/system.md');
+    $prompt = @file_get_contents(__DIR__ . '/prompts/custom.md');
     if (!$prompt) {
         $prompt = @file_get_contents(__DIR__ . '/prompts/system.example.md');
     }
