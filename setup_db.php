@@ -36,13 +36,20 @@ try {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
-    // 4. NUEVA: Tabla de Conocimiento (RAG Local)
+    // 4. Tabla de Conocimiento (RAG Local)
     $pdo->exec("CREATE TABLE IF NOT EXISTS knowledge_chunks (
         id INT AUTO_INCREMENT PRIMARY KEY,
         source_file VARCHAR(255),
         content TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FULLTEXT (content)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    // 5. Tabla de Configuraciones (Settings)
+    $pdo->exec("CREATE TABLE IF NOT EXISTS settings (
+        `key` VARCHAR(100) PRIMARY KEY,
+        `value` TEXT,
+        `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
     echo "<h2 style='color:green'>¡Base de datos de Salvix Wireless IA Agent (Versión RAG) lista con éxito!</h2>";

@@ -7,7 +7,18 @@ require_once __DIR__ . '/knowledge.php';
  */
 
 function buildSystemPrompt($userMessage = "") {
-    $prompt = @file_get_contents(__DIR__ . '/prompts/custom.md');
+    // Leer el prompt desde la base de datos (settings)
+    $prompt = '';
+    try {
+        require_once __DIR__ . '/db.php';
+        $pdo = getDB();
+        $stmt = $pdo->prepare("SELECT `value` FROM settings WHERE `key` = 'system_prompt'");
+        $stmt->execute();
+        $prompt = $stmt->fetchColumn();
+    } catch (Exception $e) {
+        logger("ERROR leyendo system_prompt de DB: " . $e->getMessage());
+    }
+    // Fallback: archivo de ejemplo si no hay nada en DB
     if (!$prompt) {
         $prompt = @file_get_contents(__DIR__ . '/prompts/system.example.md');
     }

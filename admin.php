@@ -199,7 +199,9 @@ if (!isset($_SESSION['admin'])) {
 // 2. Lógica de Guardado de Instrucciones
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_config'])) {
     $newPrompt = $_POST['system_prompt'] ?? '';
-    file_put_contents(__DIR__ . '/prompts/custom.md', $newPrompt);
+    $pdo = getDB();
+    $stmt = $pdo->prepare("INSERT INTO settings (`key`, `value`) VALUES ('system_prompt', ?) ON DUPLICATE KEY UPDATE `value` = ?");
+    $stmt->execute([$newPrompt, $newPrompt]);
     $success_msg = "Instrucciones actualizadas con éxito.";
 }
 
@@ -242,7 +244,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_prompt'])) {
         $generatedPrompt = $data['choices'][0]['message']['content'] ?? '';
         
         if ($generatedPrompt) {
-            file_put_contents(__DIR__ . '/prompts/custom.md', trim($generatedPrompt));
+            $pdo = getDB();
+            $stmt = $pdo->prepare("INSERT INTO settings (`key`, `value`) VALUES ('system_prompt', ?) ON DUPLICATE KEY UPDATE `value` = ?");
+            $stmt->execute([trim($generatedPrompt), trim($generatedPrompt)]);
             $success_msg = "Instrucciones generadas con IA correctamente.";
         } else {
             $error_msg = "No se pudo generar el prompt. Revisa los logs.";
@@ -361,7 +365,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_chat'])) {
 
 // 3. Lógica del Dashboard
 $pdo = getDB();
-$prompt_content = @file_get_contents(__DIR__ . '/prompts/custom.md') ?: @file_get_contents(__DIR__ . '/prompts/system.example.md') ?: "";
+$stmt = $pdo->prepare("SELECT `value` FROM settings WHERE `key` = 'system_prompt'");
+$stmt->execute();
+$prompt_content = $stmt->fetchColumn() ?: @file_get_contents(__DIR__ . '/prompts/system.example.md') ?: "";
 
 // Contar métricas
 $totalMsgs = $pdo->query("SELECT COUNT(*) FROM messages")->fetchColumn();
