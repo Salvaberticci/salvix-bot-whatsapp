@@ -133,7 +133,13 @@ function transcribeAudio($filePath) {
 function analyzeImage($filePath, $userText = "Describe esta imagen", $history = []) {
     $url = 'https://api.groq.com/openai/v1/chat/completions';
     $imageData = base64_encode(file_get_contents($filePath));
-    $mimeType = 'image/jpeg';
+
+    // Detectar el MIME type real del archivo
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mimeType = finfo_file($finfo, $filePath);
+    finfo_close($finfo);
+    if (!$mimeType) $mimeType = 'image/jpeg';
+
     $systemPrompt = buildSystemPrompt($userText);
     
     $messages = [];
@@ -164,10 +170,25 @@ function analyzeImage($filePath, $userText = "Describe esta imagen", $history = 
         'Content-Type: application/json',
         'Authorization: Bearer ' . GROQ_API_KEY
     ]);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
 
     $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
     curl_close($ch);
-    
+
+    if ($httpCode !== 200) {
+        logger("ERROR analyzeImage (Groq): HTTP $httpCode | Error cURL: $curlError | Respuesta: $response");
+        return "Lo siento, tuve un problema al procesar la imagen. ¿Puedes describirme qué hay en ella?";
+    }
+
     $data = json_decode($response, true);
-    return $data['choices'][0]['message']['content'] ?? "Lo siento, pude ver la imagen pero no logré procesar una respuesta.";
+    $content = $data['choices'][0]['message']['content'] ?? null;
+    
+    if (!$content) {
+        logger("ERROR analyzeImage: Respuesta vacía de Groq. Response raw: " . $response);
+        return "Lo siento, no pude interpretar bien la imagen. ¿Me cuentas qué muestra?";
+    }
+    
+    return $content;
 }
