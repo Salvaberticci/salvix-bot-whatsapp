@@ -5,4 +5,5 @@ scratch/
 error_log.txt
 DEBUG_ERROR.txt
 bot.zip
+prompts/system.md
 

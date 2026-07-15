@@ -9,6 +9,9 @@ require_once __DIR__ . '/knowledge.php';
 function buildSystemPrompt($userMessage = "") {
     $prompt = @file_get_contents(__DIR__ . '/prompts/system.md');
     if (!$prompt) {
+        $prompt = @file_get_contents(__DIR__ . '/prompts/system.example.md');
+    }
+    if (!$prompt) {
         $prompt = "Eres un asistente de ventas útil para Salvix Wireless IA Agent. Responde de forma concisa en español.";
     }
     
