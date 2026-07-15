@@ -8,6 +8,43 @@ require_once __DIR__ . '/leads.php';
  * Webhook principal para WhatsApp en PHP
  */
 
+/**
+ * Divide un mensaje largo en fragmentos naturales para simular escritura humana.
+ * Cada fragmento tiene un máximo de ~200 caracteres y se corta por oraciones o saltos de línea.
+ */
+function splitMessage($text) {
+    $maxLen = 200;
+    if (strlen($text) <= $maxLen) {
+        return [$text];
+    }
+
+    $chunks = [];
+    $parts = preg_split('/\n\n+/', $text); // Separar por párrafos
+
+    foreach ($parts as $part) {
+        if (strlen($part) <= $maxLen) {
+            $chunks[] = trim($part);
+        } else {
+            // Partir por oraciones
+            $sentences = preg_split('/(?<=[.!?])\s+/', $part);
+            $buffer = '';
+            foreach ($sentences as $s) {
+                $s = trim($s);
+                if (!$s) continue;
+                if (strlen($buffer . ' ' . $s) <= $maxLen) {
+                    $buffer = trim($buffer . ' ' . $s);
+                } else {
+                    if ($buffer) $chunks[] = $buffer;
+                    $buffer = $s;
+                }
+            }
+            if ($buffer) $chunks[] = $buffer;
+        }
+    }
+
+    return array_filter($chunks);
+}
+
 // Cazador de errores fatales
 register_shutdown_function(function() {
     $error = error_get_last();
@@ -136,18 +173,26 @@ if ($message) {
 
         // 5. Simular escritura humana: esperar tiempo proporcional
         // (typing_on ya se envió al inicio, ahora solo esperamos y apagamos)
-        $len = strlen($cleanReply);
-        if ($len < 100)      $delay = rand(2, 4);
-        elseif ($len < 250)  $delay = rand(3, 5);
-        else                 $delay = rand(4, 7);
-        sleep($delay);
+        $totalLen = strlen($cleanReply);
+        $initialDelay = min(round($totalLen * 0.05), 4);
+        if ($initialDelay < 1.5) $initialDelay = 1.5;
+        sleep($initialDelay);
         sendAction($wa_id, 'typing_off');
 
-        // 6. Enviar a WhatsApp
-        logger("PREPARANDO ENVÍO A $wa_id: $cleanReply");
-        sendWhatsAppText($wa_id, $cleanReply);
+        // 6. Enviar a WhatsApp en fragmentos naturales
+        $chunks = splitMessage($cleanReply);
+        $fullLog = '';
+        foreach ($chunks as $i => $chunk) {
+            logger("ENVIANDO FRAGMENTO " . ($i + 1) . "/" . count($chunks) . " a $wa_id");
+            sendWhatsAppText($wa_id, $chunk);
+            $fullLog .= ($fullLog ? "\n---\n" : '') . $chunk;
+            if ($i < count($chunks) - 1) {
+                sleep(rand(2, 3)); // delay entre fragmentos
+            }
+        }
+        logger("RESPUESTA COMPLETA ENVIADA A $wa_id (en " . count($chunks) . " fragmentos)");
 
-        // 6. Guardar respuesta del bot
+        // Guardar la respuesta completa en BD
         $stmt = $pdo->prepare("INSERT INTO messages (wa_id, role, content) VALUES (?, 'assistant', ?)");
         $stmt->execute([$wa_id, $cleanReply]);
 
