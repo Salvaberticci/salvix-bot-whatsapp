@@ -64,6 +64,9 @@ if ($message) {
     $reply = null;
     $history = [];
 
+    // Mostrar "escribiendo..." de inmediato para todos los tipos de mensaje
+    sendAction($wa_id, 'typing_on');
+
     try {
         logger("CONECTANDO A DB...");
         $pdo = getDB();
@@ -131,8 +134,8 @@ if ($message) {
         processLeads($wa_id, $reply, $history); 
         $cleanReply = cleanReply($reply);
 
-        // 5. Simular escritura humana: mostrar "escribiendo..." y esperar
-        sendAction($wa_id, 'typing_on');
+        // 5. Simular escritura humana: esperar tiempo proporcional
+        // (typing_on ya se envió al inicio, ahora solo esperamos y apagamos)
         $len = strlen($cleanReply);
         if ($len < 100)      $delay = rand(2, 4);
         elseif ($len < 250)  $delay = rand(3, 5);
