@@ -5,6 +5,33 @@ require_once __DIR__ . '/config.php';
  * Cliente simple para enviar mensajes de WhatsApp Cloud API
  */
 
+/**
+ * Envía una acción a WhatsApp (typing_on, typing_off, mark_seen)
+ * para simular que un humano está escribiendo.
+ */
+function sendAction($to, $action = 'typing_on') {
+    $url = "https://graph.facebook.com/v25.0/" . WA_PHONE_ID . "/messages";
+    $payload = [
+        'messaging_product' => 'whatsapp',
+        'recipient_type' => 'individual',
+        'to' => $to,
+        'type' => 'action',
+        'action' => ['name' => $action]
+    ];
+
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'Authorization: Bearer ' . WA_TOKEN
+    ]);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+    curl_exec($ch);
+    curl_close($ch);
+}
+
 function sendWhatsAppText($to, $text) {
     $url = "https://graph.facebook.com/v25.0/" . WA_PHONE_ID . "/messages";
     logger("URL DE ENVÍO: $url | TOKEN INICIA CON: " . substr(WA_TOKEN, 0, 10) . "...");

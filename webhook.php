@@ -131,7 +131,16 @@ if ($message) {
         processLeads($wa_id, $reply, $history); 
         $cleanReply = cleanReply($reply);
 
-        // 5. Enviar a WhatsApp
+        // 5. Simular escritura humana: mostrar "escribiendo..." y esperar
+        sendAction($wa_id, 'typing_on');
+        $len = strlen($cleanReply);
+        if ($len < 100)      $delay = rand(2, 4);
+        elseif ($len < 250)  $delay = rand(3, 5);
+        else                 $delay = rand(4, 7);
+        sleep($delay);
+        sendAction($wa_id, 'typing_off');
+
+        // 6. Enviar a WhatsApp
         logger("PREPARANDO ENVÍO A $wa_id: $cleanReply");
         sendWhatsAppText($wa_id, $cleanReply);
 
