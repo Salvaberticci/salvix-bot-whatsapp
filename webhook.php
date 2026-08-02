@@ -101,13 +101,36 @@ if ($message) {
     $reply = null;
     $history = [];
 
-    // Mostrar "escribiendo..." de inmediato para todos los tipos de mensaje
-    sendAction($wa_id, 'typing_on');
+    // Ampliar límite de tiempo para procesar sin cortar
+    @set_time_limit(90);
 
     try {
         logger("CONECTANDO A DB...");
         $pdo = getDB();
         logger("DB CONECTADA.");
+
+        // ANTES DE NADA: evitar reintentos de Meta (dedupe por message_id)
+        $stmt = $pdo->prepare("SELECT id FROM messages WHERE message_id = ?");
+        $stmt->execute([$msg_id]);
+        if ($stmt->fetch()) {
+            logger("⚠️ MENSAJE YA PROCESADO ANTERIORMENTE (retry de Meta), omitiendo: $msg_id");
+            http_response_code(200);
+            echo "OK";
+            exit;
+        }
+
+        // Responder 200 lo antes posible para que Meta NO reintente el webhook,
+        // y seguir procesando en segundo plano cuando el servidor lo permita.
+        if (function_exists('fastcgi_finish_request')) {
+            ignore_user_abort(true);
+            http_response_code(200);
+            header('Content-Type: text/plain');
+            echo "OK";
+            fastcgi_finish_request();
+        }
+
+        // Mostrar "escribiendo..." de inmediato para todos los tipos de mensaje
+        sendAction($wa_id, 'typing_on');
 
         // A. PROCESAR SEGÚN EL TIPO DE MENSAJE
         if ($type === 'text') {
