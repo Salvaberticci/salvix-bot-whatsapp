@@ -84,7 +84,7 @@ function completeChat($userMessage, $history = []) {
         'model' => $model,
         'messages' => $messages,
         'temperature' => 0.3,
-        'max_tokens' => 500
+        'max_tokens' => 200
     ];
 
     logger("DEBUG: Enviando cURL a Groq...");
@@ -161,7 +161,7 @@ function analyzeImage($filePath, $userText = "Describe esta imagen", $history = 
         'model' => 'meta-llama/llama-4-scout-17b-16e-instruct',
         'messages' => $messages,
         'temperature' => 0.3,
-        'max_tokens' => 500
+        'max_tokens' => 200
     ];
 
     $ch = curl_init($url);
