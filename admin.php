@@ -235,7 +235,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_prompt'])) {
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             'Content-Type: application/json',
-            'Authorization: Bearer ' . ($_ENV['OPENAI_API_KEY'] ?? getenv('OPENAI_API_KEY'))
+            'Authorization: Bearer ' . GROQ_API_KEY
         ]);
         $response = curl_exec($ch);
         curl_close($ch);
@@ -262,8 +262,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_api'])) {
     $keysToUpdate = [
         'WHATSAPP_API_TOKEN' => $_POST['wa_token'],
         'WHATSAPP_PHONE_NUMBER_ID' => $_POST['wa_phone_id'],
-        'OPENAI_API_KEY' => $_POST['groq_key'],
-        'OPENAI_MODEL' => $_POST['text_model']
+        'GROQ_API_KEY' => $_POST['groq_key'],
+        'GROQ_MODEL' => $_POST['text_model']
     ];
 
     foreach ($keysToUpdate as $key => $value) {
@@ -274,6 +274,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_api'])) {
         } else {
             $envContent .= "\n" . $replacement;
         }
+    }
+
+    // Limpiar variables viejas de OpenAI para evitar confusión
+    foreach (['OPENAI_API_KEY', 'OPENAI_MODEL', 'OPENAI_BASE_URL'] as $oldKey) {
+        $envContent = preg_replace("/^" . preg_quote($oldKey) . "=.*\n/m", "", $envContent);
     }
     
     file_put_contents($envPath, $envContent);
@@ -1343,11 +1348,11 @@ $currentView = $_GET['view'] ?? 'dashboard';
 
                         <div class="form-group">
                             <label>Groq API Key</label>
-                            <input type="text" class="form-control" name="groq_key" value="<?php echo htmlspecialchars($_ENV['OPENAI_API_KEY'] ?? getenv('OPENAI_API_KEY')); ?>" style="font-family:monospace; font-size:13px;">
+                            <input type="text" class="form-control" name="groq_key" value="<?php echo htmlspecialchars($_ENV['GROQ_API_KEY'] ?? getenv('GROQ_API_KEY') ?: ($_ENV['OPENAI_API_KEY'] ?? getenv('OPENAI_API_KEY'))); ?>" style="font-family:monospace; font-size:13px;">
                         </div>
                         <div class="form-group">
-                            <label>Modelo de Texto</label>
-                            <input type="text" class="form-control" name="text_model" value="<?php echo htmlspecialchars($_ENV['OPENAI_MODEL'] ?? getenv('OPENAI_MODEL')); ?>">
+                            <label>Modelo de Texto (Groq)</label>
+                            <input type="text" class="form-control" name="text_model" value="<?php echo htmlspecialchars($_ENV['GROQ_MODEL'] ?? getenv('GROQ_MODEL') ?: ($_ENV['OPENAI_MODEL'] ?? getenv('OPENAI_MODEL'))); ?>">
                         </div>
 
                         <button type="submit" name="save_api" class="btn btn-primary">Guardar Credenciales</button>

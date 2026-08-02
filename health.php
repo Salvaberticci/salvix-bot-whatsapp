@@ -14,7 +14,7 @@ $response = [
     'database' => 'error',
     'config' => [
         'wa_phone_id' => getenv('WHATSAPP_PHONE_NUMBER_ID') ? 'Set' : 'Missing',
-        'groq_api_key' => getenv('OPENAI_API_KEY') ? 'Set' : 'Missing',
+        'groq_api_key' => (getenv('GROQ_API_KEY') ?: getenv('OPENAI_API_KEY')) ? 'Set' : 'Missing',
     ]
 ];
 
