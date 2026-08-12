@@ -4,57 +4,33 @@ require_once __DIR__ . '/config.php';
 /**
  * Enviar Mensaje de Prueba (Meta Tech Provider)
  * 
- * Solo pide el número de teléfono y envía la plantilla "hello_world"
- * via WhatsApp Cloud API, igual que el cURL del "Try it out tool" de Meta.
- * Muestra el comando cURL y su resultado para el video de validación.
+ * Un solo botón. Envía la plantilla "hello_world" al número de prueba,
+ * igual que el cURL del "Try it out tool" de Meta.
  */
 
 $result = null;
 $curlOutput = null;
-$phone = preg_replace('/\D/', '', trim($_POST['phone'] ?? ''));
-$defaultPhone = $_ENV['TEST_PHONE'] ?? getenv('TEST_PHONE') ?? '';
 
-// Estado de configuración para diagnóstico
 $cfg = [
     'token'  => !empty(WA_TOKEN)  ? 'OK' : 'FALTA',
     'phone'  => !empty(WA_PHONE_ID) ? 'OK' : 'FALTA',
 ];
 
-// Payload igual al cURL del Try it out tool (plantilla hello_world)
-function buildPayload($to) {
-    return [
-        'messaging_product' => 'whatsapp',
-        'recipient_type' => 'individual',
-        'to' => $to,
-        'type' => 'template',
-        'template' => [
-            'name' => 'hello_world',
-            'language' => ['code' => 'en_US']
-        ]
-    ];
-}
-
-function buildCurlCommand($payload) {
-    $phoneId = WA_PHONE_ID;
-    $token = WA_TOKEN;
-    $json = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-
-    return "curl -X POST \"https://graph.facebook.com/v25.0/{$phoneId}/messages\" \\\n" .
-           "  -H \"Authorization: Bearer {$token}\" \\\n" .
-           "  -H \"Content-Type: application/json\" \\\n" .
-           "  -d '" . $json . "'";
-}
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_test'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($cfg['token'] !== 'OK' || $cfg['phone'] !== 'OK') {
         $result = ['ok' => false, 'text' => '⚠️ Falta configuración: revisa WHATSAPP_API_TOKEN y WHATSAPP_PHONE_NUMBER_ID en el .env.'];
-    } elseif (empty($phone)) {
-        $result = ['ok' => false, 'text' => '⚠️ Escribe tu número de WhatsApp con código de país (ej: 584121234567).'];
-    } elseif (strlen($phone) < 10) {
-        $result = ['ok' => false, 'text' => '⚠️ El número debe incluir código de país (ej: 584121234567).'];
     } else {
+        $to = '584121731842';
         $url = 'https://graph.facebook.com/v25.0/' . WA_PHONE_ID . '/messages';
-        $payload = buildPayload($phone);
+        $payload = [
+            'messaging_product' => 'whatsapp',
+            'to' => $to,
+            'type' => 'template',
+            'template' => [
+                'name' => 'hello_world',
+                'language' => ['code' => 'en_US']
+            ]
+        ];
 
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -74,22 +50,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_test'])) {
         $data = json_decode($response, true);
 
         if ($httpCode === 200) {
-            $result = ['ok' => true, 'text' => '✅ Mensaje enviado correctamente a ' . $phone . '. Revisa WhatsApp Web.'];
+            $result = ['ok' => true, 'text' => '✅ Mensaje enviado correctamente a ' . $to . '. Revisa WhatsApp Web.'];
         } else {
             $detail = $data['error']['message'] ?? $response;
             $result = ['ok' => false, 'text' => '❌ Error HTTP ' . $httpCode . ': ' . $detail . ($error ? ' | cURL: ' . $error : '')];
         }
-        logger("TEST SEND: HTTP $httpCode -> $phone | " . ($result['ok'] ? 'OK' : $result['text']));
+        logger("TEST SEND: HTTP $httpCode -> $to | " . ($result['ok'] ? 'OK' : $result['text']));
 
-        // Mostrar la salida tipo terminal
-        $curlOutput = "> " . str_replace("\n", "\n> ", buildCurlCommand($payload)) . "\n\n";
+        $payloadJson = str_replace("\n", "\n  ", json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $curlOutput  = "> curl -i -X POST \"https://graph.facebook.com/v25.0/" . WA_PHONE_ID . "/messages\" \\\n";
+        $curlOutput .= ">   -H 'Authorization: Bearer EA*******" . substr(WA_TOKEN, -6) . "' \\\n";
+        $curlOutput .= ">   -H 'Content-Type: application/json' \\\n";
+        $curlOutput .= ">   -d '{\n";
+        $curlOutput .= ">     \"messaging_product\": \"whatsapp\",\n";
+        $curlOutput .= ">     \"to\": \"" . $to . "\",\n";
+        $curlOutput .= ">     \"type\": \"template\",\n";
+        $curlOutput .= ">     \"template\": { \"name\": \"hello_world\", \"language\": { \"code\": \"en_US\" } }\n";
+        $curlOutput .= ">   }'\n\n";
         $curlOutput .= "HTTP/1.1 " . $httpCode . "\n";
-        $curlOutput .= $response !== false ? htmlspecialchars($response) : ('cURL error: ' . $error);
-        $curlOutput = preg_replace('/EAA[A-Za-z0-9]+/', 'EA*******' . substr(WA_TOKEN, -6), $curlOutput);
+        $curlOutput .= $response !== false ? $response : ('cURL error: ' . $error);
+        $curlOutput = trim(preg_replace('/EAA[A-Za-z0-9]+/', 'EA*******' . substr(WA_TOKEN, -6), $curlOutput));
     }
 }
-
-$displayPhone = $phone ?: $defaultPhone;
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -131,20 +113,18 @@ $displayPhone = $phone ?: $defaultPhone;
             border-radius: 20px;
             padding: 32px;
             box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4);
+            text-align: center;
         }
         .logo {
             width: 64px;
             height: 64px;
             margin: 0 auto 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             border-radius: 16px;
             overflow: hidden;
         }
         .logo img { width: 100%; height: 100%; object-fit: contain; }
-        h1 { font-size: 20px; font-weight: 700; text-align: center; letter-spacing: -0.3px; }
-        .subtitle { text-align: center; color: #8A8A8A; font-size: 13px; margin: 6px 0 20px; }
+        h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
+        .subtitle { color: #8A8A8A; font-size: 13px; margin: 6px 0 20px; }
         .config-row {
             display: flex;
             justify-content: center;
@@ -159,34 +139,9 @@ $displayPhone = $phone ?: $defaultPhone;
         }
         .pill.ok { background: rgba(74, 222, 128, 0.12); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.25); }
         .pill.bad { background: rgba(239, 68, 68, 0.12); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.25); }
-        .form-group { margin-bottom: 18px; }
-        .form-group label {
-            display: block;
-            color: #8A8A8A;
-            font-size: 12px;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 8px;
-        }
-        .form-group input {
-            width: 100%;
-            padding: 14px 16px;
-            background: rgba(0, 0, 0, 0.6);
-            border: 1px solid #2a2a2a;
-            border-radius: 12px;
-            color: #FFFFFF;
-            font-size: 16px;
-            font-family: 'Inter', sans-serif;
-            transition: all 0.2s ease;
-            outline: none;
-        }
-        .form-group input:focus {
-            border-color: #38bdf8;
-            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
-        }
         .btn {
             width: 100%;
+            max-width: 320px;
             padding: 15px;
             background: linear-gradient(135deg, #38bdf8, #7dd3fc);
             border: none;
@@ -208,6 +163,7 @@ $displayPhone = $phone ?: $defaultPhone;
             line-height: 1.6;
             word-break: break-word;
             font-weight: 500;
+            text-align: left;
         }
         .result.ok {
             background: rgba(74, 222, 128, 0.1);
@@ -229,6 +185,7 @@ $displayPhone = $phone ?: $defaultPhone;
             font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
             font-size: 12px;
             line-height: 1.7;
+            text-align: left;
         }
         .terminal-bar {
             display: flex;
@@ -248,7 +205,7 @@ $displayPhone = $phone ?: $defaultPhone;
             color: #4ade80;
             white-space: pre-wrap;
             word-break: break-all;
-            max-height: 320px;
+            max-height: 400px;
             overflow-y: auto;
         }
         .terminal-body .cmd { color: #38bdf8; }
@@ -273,10 +230,6 @@ $displayPhone = $phone ?: $defaultPhone;
         <?php endif; ?>
 
         <form method="POST" id="testForm">
-            <div class="form-group">
-                <label>Número de WhatsApp (con código de país)</label>
-                <input type="text" name="phone" id="phone" value="<?php echo htmlspecialchars($displayPhone); ?>" placeholder="Ej: 584121234567">
-            </div>
             <button type="submit" name="send_test" class="btn" id="sendBtn">Enviar Mensaje de Prueba</button>
         </form>
 
@@ -289,19 +242,14 @@ $displayPhone = $phone ?: $defaultPhone;
                 <?php if ($curlOutput !== null): ?>
                     <span class="cmd"><?php echo nl2br($curlOutput); ?></span>
                 <?php else: ?>
-                    <span class="cmd">$ </span><span class="out">Esperando comando... escribe tu número y pulsa "Enviar Mensaje de Prueba".</span>
+                    <span class="cmd">$ </span><span class="out">Esperando comando... pulsa "Enviar Mensaje de Prueba".</span>
                 <?php endif; ?>
             </div>
         </div>
     </div>
 
     <script>
-        document.getElementById('testForm').addEventListener('submit', function(e) {
-            if (!document.getElementById('phone').value.trim()) {
-                e.preventDefault();
-                alert('⚠️ Escribe tu número de WhatsApp antes de enviar.');
-                return;
-            }
+        document.getElementById('testForm').addEventListener('submit', function() {
             var btn = document.getElementById('sendBtn');
             btn.disabled = true;
             btn.textContent = 'Enviando...';
