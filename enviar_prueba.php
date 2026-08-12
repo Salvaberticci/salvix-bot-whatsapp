@@ -5,10 +5,14 @@ require_once __DIR__ . '/config.php';
  * Enviar Mensaje de Prueba (Meta Tech Provider)
  * 
  * Interfaz con un botón que envía un mensaje vía WhatsApp Cloud API.
- * Sirve para grabar el Video 1 del proceso de validación de Meta.
+ * Muestra el comando cURL (estilo "Try it out tool" de Meta) y su resultado,
+ * tal como pide la guía oficial para el video de validación:
+ *   - Se ve la aplicación enviando el mensaje (cURL visible en pantalla)
+ *   - Se ve la interfaz de WhatsApp recibiendo el mensaje
  */
 
 $result = null;
+$curlOutput = null;
 $phone = $_POST['phone'] ?? '';
 $message = $_POST['message'] ?? '';
 $defaultPhone = $_ENV['TEST_PHONE'] ?? getenv('TEST_PHONE') ?? '';
@@ -19,6 +23,24 @@ $cfg = [
     'token'  => !empty(WA_TOKEN)  ? 'OK' : 'FALTA',
     'phone'  => !empty(WA_PHONE_ID) ? 'OK' : 'FALTA',
 ];
+
+// Construir el comando cURL (igual al del Try it out tool de Meta)
+function buildCurlCommand($to, $body) {
+    $phoneId = WA_PHONE_ID;
+    $token = WA_TOKEN;
+    $payload = json_encode([
+        'messaging_product' => 'whatsapp',
+        'recipient_type' => 'individual',
+        'to' => $to,
+        'type' => 'text',
+        'text' => ['body' => $body]
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+    return "curl -X POST \"https://graph.facebook.com/v25.0/{$phoneId}/messages\" \\\n" .
+           "  -H \"Authorization: Bearer {$token}\" \\\n" .
+           "  -H \"Content-Type: application/json\" \\\n" .
+           "  -d '" . $payload . "'";
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_test'])) {
     $phone = preg_replace('/\D/', '', $phone);
@@ -68,8 +90,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_test'])) {
             $result = ['ok' => false, 'text' => '❌ Error HTTP ' . $httpCode . ': ' . $detail . ($error ? ' | cURL: ' . $error : '')];
         }
         logger("TEST SEND: HTTP $httpCode -> $phone | " . ($result['ok'] ? 'OK' : $result['text']));
+
+        // Mostrar la salida tipo terminal
+        $curlOutput = "> " . str_replace("\n", "\n> ", buildCurlCommand($phone, $message)) . "\n\n";
+        $curlOutput .= "HTTP/1.1 " . $httpCode . "\n";
+        $curlOutput .= $response !== false ? htmlspecialchars($response) : ('cURL error: ' . $error);
+        $curlOutput = preg_replace('/EAA[A-Za-z0-9]+/', 'EA*******' . substr(WA_TOKEN, -6), $curlOutput);
     }
 }
+
+$displayPhone = $phone ?: $defaultPhone;
+$displayMessage = $message ?: $defaultMessage;
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -105,7 +136,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_test'])) {
         .card {
             position: relative;
             width: 100%;
-            max-width: 480px;
+            max-width: 640px;
             background: rgba(13, 13, 13, 0.92);
             border: 1px solid rgba(42, 42, 42, 0.6);
             border-radius: 20px;
@@ -161,7 +192,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_test'])) {
             transition: all 0.2s ease;
             outline: none;
         }
-        .form-group textarea { resize: vertical; min-height: 110px; line-height: 1.6; }
+        .form-group textarea { resize: vertical; min-height: 100px; line-height: 1.6; }
         .form-group input:focus, .form-group textarea:focus {
             border-color: #38bdf8;
             box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
@@ -201,6 +232,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_test'])) {
             color: #fca5a5;
             font-size: 12px;
         }
+        .terminal {
+            margin-top: 22px;
+            background: #0a0a0f;
+            border: 1px solid #2a2a2a;
+            border-radius: 12px;
+            overflow: hidden;
+            font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+            font-size: 12px;
+            line-height: 1.7;
+        }
+        .terminal-bar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 14px;
+            background: #141414;
+            border-bottom: 1px solid #2a2a2a;
+        }
+        .terminal-bar .dot { width: 10px; height: 10px; border-radius: 50%; }
+        .terminal-bar .dot.r { background: #ef4444; }
+        .terminal-bar .dot.y { background: #fbbf24; }
+        .terminal-bar .dot.g { background: #4ade80; }
+        .terminal-bar .title { margin-left: 8px; color: #8A8A8A; font-size: 11px; }
+        .terminal-body {
+            padding: 14px 16px;
+            color: #4ade80;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 320px;
+            overflow-y: auto;
+        }
+        .terminal-body .cmd { color: #38bdf8; }
+        .terminal-body .out { color: #8A8A8A; }
     </style>
 </head>
 <body>
@@ -223,14 +287,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_test'])) {
         <form method="POST" id="testForm">
             <div class="form-group">
                 <label>Número de WhatsApp (con código de país)</label>
-                <input type="text" name="phone" id="phone" value="<?php echo htmlspecialchars($phone ?: $defaultPhone); ?>" placeholder="Ej: 584121234567">
+                <input type="text" name="phone" id="phone" value="<?php echo htmlspecialchars($displayPhone); ?>" placeholder="Ej: 584121234567">
             </div>
             <div class="form-group">
                 <label>Mensaje</label>
-                <textarea name="message" id="message" placeholder="Escribe aquí el mensaje de prueba..."><?php echo htmlspecialchars($message ?: $defaultMessage); ?></textarea>
+                <textarea name="message" id="message" placeholder="Escribe aquí el mensaje de prueba..."><?php echo htmlspecialchars($displayMessage); ?></textarea>
             </div>
             <button type="submit" name="send_test" class="btn" id="sendBtn">Enviar Mensaje de Prueba</button>
         </form>
+
+        <div class="terminal">
+            <div class="terminal-bar">
+                <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+                <span class="title">Terminal - envío via API Cloud (curl)</span>
+            </div>
+            <div class="terminal-body" id="terminalBody">
+                <?php if ($curlOutput !== null): ?>
+                    <span class="cmd"><?php echo nl2br($curlOutput); ?></span>
+                <?php else: ?>
+                    <span class="cmd">$ </span><span class="out">Esperando comando... completa el formulario y pulsa "Enviar Mensaje de Prueba".</span>
+                <?php endif; ?>
+            </div>
+        </div>
     </div>
 
     <script>
