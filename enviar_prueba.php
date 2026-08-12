@@ -5,25 +5,35 @@ require_once __DIR__ . '/config.php';
  * Enviar Mensaje de Prueba (Meta Tech Provider)
  * 
  * Interfaz con un botón que envía un mensaje vía WhatsApp Cloud API.
- * Sirve para grabar el Video 1 del proceso de validación:
- *   - Izquierda: esta página
- *   - Derecha: WhatsApp Web con un chat propio en vivo
+ * Sirve para grabar el Video 1 del proceso de validación de Meta.
  */
 
 $result = null;
 $phone = $_POST['phone'] ?? '';
 $message = $_POST['message'] ?? '';
 $defaultPhone = $_ENV['TEST_PHONE'] ?? getenv('TEST_PHONE') ?? '';
-$defaultMessage = $_ENV['TEST_MESSAGE'] ?? getenv('TEST_MESSAGE') ?? 'Hola {{nombre_cliente}}, tu solicitud se ha procesado con éxito.';
+$defaultMessage = $_ENV['TEST_MESSAGE'] ?? getenv('TEST_MESSAGE') ?? 'Hola {{1}}, tu solicitud se ha procesado con éxito.';
+
+// Estado de configuración para diagnóstico
+$cfg = [
+    'token'  => !empty(WA_TOKEN)  ? 'OK' : 'FALTA',
+    'phone'  => !empty(WA_PHONE_ID) ? 'OK' : 'FALTA',
+];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_test'])) {
     $phone = preg_replace('/\D/', '', $phone);
     $message = trim($message);
 
-    if (empty($phone) || empty($message)) {
-        $result = ['ok' => false, 'text' => 'Ingresa el número y el mensaje.'];
+    if (empty($phone) && empty($message)) {
+        $result = ['ok' => false, 'text' => '⚠️ Escribe tu número de WhatsApp y un mensaje antes de enviar.'];
+    } elseif (empty($phone)) {
+        $result = ['ok' => false, 'text' => '⚠️ Escribe tu número de WhatsApp con código de país (ej: 584121234567).'];
+    } elseif (empty($message)) {
+        $result = ['ok' => false, 'text' => '⚠️ Escribe un mensaje.'];
     } elseif (strlen($phone) < 10) {
-        $result = ['ok' => false, 'text' => 'El número debe incluir código de país (ej: 584121234567).'];
+        $result = ['ok' => false, 'text' => '⚠️ El número debe incluir código de país (ej: 584121234567).'];
+    } elseif ($cfg['token'] !== 'OK' || $cfg['phone'] !== 'OK') {
+        $result = ['ok' => false, 'text' => '⚠️ Falta configuración: revisa WHATSAPP_API_TOKEN y WHATSAPP_PHONE_NUMBER_ID en el .env.'];
     } else {
         $url = 'https://graph.facebook.com/v25.0/' . WA_PHONE_ID . '/messages';
         $payload = [
@@ -52,10 +62,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_test'])) {
         $data = json_decode($response, true);
 
         if ($httpCode === 200) {
-            $result = ['ok' => true, 'text' => 'Mensaje enviado correctamente a ' . $phone . '. Revisa WhatsApp Web.'];
+            $result = ['ok' => true, 'text' => '✅ Mensaje enviado correctamente a ' . $phone . '. Revisa WhatsApp Web.'];
         } else {
             $detail = $data['error']['message'] ?? $response;
-            $result = ['ok' => false, 'text' => 'Error HTTP ' . $httpCode . ': ' . $detail . ($error ? ' | cURL: ' . $error : '')];
+            $result = ['ok' => false, 'text' => '❌ Error HTTP ' . $httpCode . ': ' . $detail . ($error ? ' | cURL: ' . $error : '')];
         }
         logger("TEST SEND: HTTP $httpCode -> $phone | " . ($result['ok'] ? 'OK' : $result['text']));
     }
@@ -114,7 +124,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_test'])) {
         }
         .logo img { width: 100%; height: 100%; object-fit: contain; }
         h1 { font-size: 20px; font-weight: 700; text-align: center; letter-spacing: -0.3px; }
-        .subtitle { text-align: center; color: #8A8A8A; font-size: 13px; margin: 6px 0 28px; }
+        .subtitle { text-align: center; color: #8A8A8A; font-size: 13px; margin: 6px 0 20px; }
+        .config-row {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+        .pill {
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .pill.ok { background: rgba(74, 222, 128, 0.12); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.25); }
+        .pill.bad { background: rgba(239, 68, 68, 0.12); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.25); }
         .form-group { margin-bottom: 18px; }
         .form-group label {
             display: block;
@@ -159,11 +183,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_test'])) {
         .btn:disabled { opacity: 0.5; cursor: wait; transform: none; }
         .result {
             margin-top: 18px;
-            padding: 12px 16px;
+            padding: 14px 16px;
             border-radius: 10px;
             font-size: 13px;
-            line-height: 1.5;
+            line-height: 1.6;
             word-break: break-word;
+            font-weight: 500;
         }
         .result.ok {
             background: rgba(74, 222, 128, 0.1);
@@ -174,19 +199,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_test'])) {
             background: rgba(239, 68, 68, 0.1);
             border: 1px solid rgba(239, 68, 68, 0.2);
             color: #fca5a5;
+            font-size: 12px;
         }
-        .status-pill {
-            display: inline-block;
-            padding: 3px 10px;
-            border-radius: 999px;
-            font-size: 11px;
-            font-weight: 600;
-            margin-bottom: 20px;
-            background: rgba(74, 222, 128, 0.12);
-            color: #4ade80;
-            border: 1px solid rgba(74, 222, 128, 0.25);
-        }
-        .center { text-align: center; }
     </style>
 </head>
 <body>
@@ -194,29 +208,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_test'])) {
         <div class="logo"><img src="img/logo.png" alt="Salvix Wireless IA Agent"></div>
         <h1>Enviar Mensaje de Prueba</h1>
         <p class="subtitle">WhatsApp Cloud API - Meta Tech Provider</p>
-        <div class="center"><span class="status-pill">● API Conectada</span></div>
+
+        <div class="config-row">
+            <span class="pill <?php echo $cfg['token'] === 'OK' ? 'ok' : 'bad'; ?>">Token: <?php echo $cfg['token']; ?></span>
+            <span class="pill <?php echo $cfg['phone'] === 'OK' ? 'ok' : 'bad'; ?>">Phone ID: <?php echo $cfg['phone']; ?></span>
+        </div>
+
+        <?php if ($result): ?>
+            <div class="result <?php echo $result['ok'] ? 'ok' : 'error'; ?>" style="margin-bottom:18px;">
+                <?php echo htmlspecialchars($result['text']); ?>
+            </div>
+        <?php endif; ?>
 
         <form method="POST" id="testForm">
             <div class="form-group">
                 <label>Número de WhatsApp (con código de país)</label>
-                <input type="text" name="phone" id="phone" value="<?php echo htmlspecialchars($phone ?: $defaultPhone); ?>" placeholder="Ej: 584121234567" required>
+                <input type="text" name="phone" id="phone" value="<?php echo htmlspecialchars($phone ?: $defaultPhone); ?>" placeholder="Ej: 584121234567">
             </div>
             <div class="form-group">
                 <label>Mensaje</label>
-                <textarea name="message" id="message" required><?php echo htmlspecialchars($message ?: $defaultMessage); ?></textarea>
+                <textarea name="message" id="message" placeholder="Escribe aquí el mensaje de prueba..."><?php echo htmlspecialchars($message ?: $defaultMessage); ?></textarea>
             </div>
             <button type="submit" name="send_test" class="btn" id="sendBtn">Enviar Mensaje de Prueba</button>
         </form>
-
-        <?php if ($result): ?>
-            <div class="result <?php echo $result['ok'] ? 'ok' : 'error'; ?>">
-                <?php echo htmlspecialchars($result['text']); ?>
-            </div>
-        <?php endif; ?>
     </div>
 
     <script>
-        document.getElementById('testForm').addEventListener('submit', function() {
+        document.getElementById('testForm').addEventListener('submit', function(e) {
+            var phone = document.getElementById('phone').value.trim();
+            var msg = document.getElementById('message').value.trim();
+            if (!phone || !msg) {
+                e.preventDefault();
+                alert('⚠️ Escribe tu número de WhatsApp y un mensaje antes de enviar.');
+                return;
+            }
             var btn = document.getElementById('sendBtn');
             btn.disabled = true;
             btn.textContent = 'Enviando...';
