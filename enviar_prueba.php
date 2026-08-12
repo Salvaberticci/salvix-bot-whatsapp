@@ -9,14 +9,22 @@ require_once __DIR__ . '/config.php';
  * tal como pide la guía oficial para el video de validación:
  *   - Se ve la aplicación enviando el mensaje (cURL visible en pantalla)
  *   - Se ve la interfaz de WhatsApp recibiendo el mensaje
+ * 
+ * Soporta dos tipos de envío:
+ *   - text:     texto libre (solo dentro de la ventana de 24h)
+ *   - template: plantilla aprobada (funciona siempre, recomendado para el video)
  */
 
 $result = null;
 $curlOutput = null;
 $phone = $_POST['phone'] ?? '';
 $message = $_POST['message'] ?? '';
+$msgType = $_POST['msg_type'] ?? 'template';
+$tplName = $_POST['tpl_name'] ?? '';
+$tplLang = $_POST['tpl_lang'] ?? 'es';
+$tplParams = $_POST['tpl_params'] ?? '';
 $defaultPhone = $_ENV['TEST_PHONE'] ?? getenv('TEST_PHONE') ?? '';
-$defaultMessage = $_ENV['TEST_MESSAGE'] ?? getenv('TEST_MESSAGE') ?? 'Hola {{1}}, tu solicitud se ha procesado con éxito.';
+$defaultMessage = $_ENV['TEST_MESSAGE'] ?? getenv('TEST_MESSAGE') ?? '';
 
 // Estado de configuración para diagnóstico
 $cfg = [
@@ -24,47 +32,64 @@ $cfg = [
     'phone'  => !empty(WA_PHONE_ID) ? 'OK' : 'FALTA',
 ];
 
-// Construir el comando cURL (igual al del Try it out tool de Meta)
-function buildCurlCommand($to, $body) {
-    $phoneId = WA_PHONE_ID;
-    $token = WA_TOKEN;
-    $payload = json_encode([
+// Construir el payload JSON (igual al del Try it out tool de Meta)
+function buildPayload($to, $body, $type, $tplName, $tplLang, $tplParams) {
+    if ($type === 'template') {
+        $payload = [
+            'messaging_product' => 'whatsapp',
+            'recipient_type' => 'individual',
+            'to' => $to,
+            'type' => 'template',
+            'template' => [
+                'name' => $tplName,
+                'language' => ['code' => $tplLang]
+            ]
+        ];
+        $params = array_values(array_filter(array_map('trim', explode(',', $tplParams))));
+        if (!empty($params)) {
+            $payload['template']['components'] = [
+                ['type' => 'body', 'parameters' => array_map(fn($p) => ['type' => 'text', 'text' => $p], $params)]
+            ];
+        }
+        return $payload;
+    }
+    return [
         'messaging_product' => 'whatsapp',
         'recipient_type' => 'individual',
         'to' => $to,
         'type' => 'text',
         'text' => ['body' => $body]
-    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    ];
+}
+
+function buildCurlCommand($payload) {
+    $phoneId = WA_PHONE_ID;
+    $token = WA_TOKEN;
+    $json = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
     return "curl -X POST \"https://graph.facebook.com/v25.0/{$phoneId}/messages\" \\\n" .
            "  -H \"Authorization: Bearer {$token}\" \\\n" .
            "  -H \"Content-Type: application/json\" \\\n" .
-           "  -d '" . $payload . "'";
+           "  -d '" . $json . "'";
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_test'])) {
     $phone = preg_replace('/\D/', '', $phone);
     $message = trim($message);
 
-    if (empty($phone) && empty($message)) {
-        $result = ['ok' => false, 'text' => '⚠️ Escribe tu número de WhatsApp y un mensaje antes de enviar.'];
+    if ($cfg['token'] !== 'OK' || $cfg['phone'] !== 'OK') {
+        $result = ['ok' => false, 'text' => '⚠️ Falta configuración: revisa WHATSAPP_API_TOKEN y WHATSAPP_PHONE_NUMBER_ID en el .env.'];
     } elseif (empty($phone)) {
         $result = ['ok' => false, 'text' => '⚠️ Escribe tu número de WhatsApp con código de país (ej: 584121234567).'];
-    } elseif (empty($message)) {
-        $result = ['ok' => false, 'text' => '⚠️ Escribe un mensaje.'];
     } elseif (strlen($phone) < 10) {
         $result = ['ok' => false, 'text' => '⚠️ El número debe incluir código de país (ej: 584121234567).'];
-    } elseif ($cfg['token'] !== 'OK' || $cfg['phone'] !== 'OK') {
-        $result = ['ok' => false, 'text' => '⚠️ Falta configuración: revisa WHATSAPP_API_TOKEN y WHATSAPP_PHONE_NUMBER_ID en el .env.'];
+    } elseif ($msgType === 'template' && (empty($tplName) || empty($tplLang))) {
+        $result = ['ok' => false, 'text' => '⚠️ Completa el nombre y el idioma de la plantilla (ej: notificacion_servicio_demo / es).'];
+    } elseif ($msgType !== 'template' && empty($message)) {
+        $result = ['ok' => false, 'text' => '⚠️ Escribe un mensaje.'];
     } else {
         $url = 'https://graph.facebook.com/v25.0/' . WA_PHONE_ID . '/messages';
-        $payload = [
-            'messaging_product' => 'whatsapp',
-            'recipient_type' => 'individual',
-            'to' => $phone,
-            'type' => 'text',
-            'text' => ['body' => $message]
-        ];
+        $payload = buildPayload($phone, $message, $msgType, $tplName, $tplLang, $tplParams);
 
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -92,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_test'])) {
         logger("TEST SEND: HTTP $httpCode -> $phone | " . ($result['ok'] ? 'OK' : $result['text']));
 
         // Mostrar la salida tipo terminal
-        $curlOutput = "> " . str_replace("\n", "\n> ", buildCurlCommand($phone, $message)) . "\n\n";
+        $curlOutput = "> " . str_replace("\n", "\n> ", buildCurlCommand($payload)) . "\n\n";
         $curlOutput .= "HTTP/1.1 " . $httpCode . "\n";
         $curlOutput .= $response !== false ? htmlspecialchars($response) : ('cURL error: ' . $error);
         $curlOutput = preg_replace('/EAA[A-Za-z0-9]+/', 'EA*******' . substr(WA_TOKEN, -6), $curlOutput);
@@ -180,7 +205,7 @@ $displayMessage = $message ?: $defaultMessage;
             letter-spacing: 0.05em;
             margin-bottom: 8px;
         }
-        .form-group input, .form-group textarea {
+        .form-group input, .form-group textarea, .form-group select {
             width: 100%;
             padding: 14px 16px;
             background: rgba(0, 0, 0, 0.6);
@@ -193,6 +218,16 @@ $displayMessage = $message ?: $defaultMessage;
             outline: none;
         }
         .form-group textarea { resize: vertical; min-height: 100px; line-height: 1.6; }
+        .form-group select {
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238A8A8A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            background-size: 16px;
+            padding-right: 42px;
+            cursor: pointer;
+        }
         .form-group input:focus, .form-group textarea:focus {
             border-color: #38bdf8;
             box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
@@ -286,10 +321,31 @@ $displayMessage = $message ?: $defaultMessage;
 
         <form method="POST" id="testForm">
             <div class="form-group">
+                <label>Tipo de envío</label>
+                <select name="msg_type" id="msgType" onchange="toggleType()">
+                    <option value="template" <?php echo $msgType === 'template' ? 'selected' : ''; ?>>Plantilla (template) - recomendado</option>
+                    <option value="text" <?php echo $msgType === 'text' ? 'selected' : ''; ?>>Texto libre (solo ventana 24h)</option>
+                </select>
+            </div>
+            <div class="form-group">
                 <label>Número de WhatsApp (con código de país)</label>
                 <input type="text" name="phone" id="phone" value="<?php echo htmlspecialchars($displayPhone); ?>" placeholder="Ej: 584121234567">
             </div>
-            <div class="form-group">
+            <div id="templateFields">
+                <div class="form-group">
+                    <label>Nombre de la plantilla</label>
+                    <input type="text" name="tpl_name" id="tplName" value="<?php echo htmlspecialchars($tplName); ?>" placeholder="Ej: notificacion_servicio_demo">
+                </div>
+                <div class="form-group" style="display:inline-block; width:48%; margin-right:2%;">
+                    <label>Idioma (código)</label>
+                    <input type="text" name="tpl_lang" id="tplLang" value="<?php echo htmlspecialchars($tplLang); ?>" placeholder="es">
+                </div>
+                <div class="form-group" style="display:inline-block; width:48%;">
+                    <label>Parámetros (separados por coma)</label>
+                    <input type="text" name="tpl_params" id="tplParams" value="<?php echo htmlspecialchars($tplParams); ?>" placeholder="Juan Pérez, 123456">
+                </div>
+            </div>
+            <div class="form-group" id="messageField">
                 <label>Mensaje</label>
                 <textarea name="message" id="message" placeholder="Escribe aquí el mensaje de prueba..."><?php echo htmlspecialchars($displayMessage); ?></textarea>
             </div>
@@ -312,12 +368,24 @@ $displayMessage = $message ?: $defaultMessage;
     </div>
 
     <script>
+        function toggleType() {
+            var type = document.getElementById('msgType').value;
+            document.getElementById('templateFields').style.display = type === 'template' ? '' : 'none';
+            document.getElementById('messageField').style.display = type === 'template' ? 'none' : '';
+        }
+        toggleType();
         document.getElementById('testForm').addEventListener('submit', function(e) {
             var phone = document.getElementById('phone').value.trim();
-            var msg = document.getElementById('message').value.trim();
-            if (!phone || !msg) {
+            var type = document.getElementById('msgType').value;
+            var ok = !!phone;
+            if (type === 'template') {
+                ok = ok && !!document.getElementById('tplName').value.trim() && !!document.getElementById('tplLang').value.trim();
+            } else {
+                ok = ok && !!document.getElementById('message').value.trim();
+            }
+            if (!ok) {
                 e.preventDefault();
-                alert('⚠️ Escribe tu número de WhatsApp y un mensaje antes de enviar.');
+                alert('⚠️ Completa el número y los campos del envío antes de pulsar Enviar.');
                 return;
             }
             var btn = document.getElementById('sendBtn');
