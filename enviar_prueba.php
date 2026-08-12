@@ -175,14 +175,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_test'])) {
             border: 1px solid rgba(239, 68, 68, 0.2);
             color: #fca5a5;
         }
-        .hint {
-            margin-top: 20px;
-            padding-top: 16px;
-            border-top: 1px solid rgba(42, 42, 42, 0.6);
-            color: #555555;
-            font-size: 12px;
-            line-height: 1.6;
-        }
         .status-pill {
             display: inline-block;
             padding: 3px 10px;
@@ -221,10 +213,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_test'])) {
                 <?php echo htmlspecialchars($result['text']); ?>
             </div>
         <?php endif; ?>
-
-        <div class="hint">
-            💡 Para el video: deja esta página a la izquierda y WhatsApp Web abierto en un chat propio a la derecha. Haz clic en el botón y muestra cómo llega el mensaje en vivo.
-        </div>
     </div>
 
     <script>
