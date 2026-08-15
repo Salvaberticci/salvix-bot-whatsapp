@@ -23,7 +23,7 @@ function buildSystemPrompt($userMessage = "") {
         $prompt = @file_get_contents(__DIR__ . '/prompts/system.example.md');
     }
     if (!$prompt) {
-        $prompt = "Eres un asistente de ventas útil para Salvix Wireless IA Agent. Responde de forma concisa en español.";
+        $prompt = "Eres un asistente de ventas útil para Salvix. Responde de forma concisa en español.";
     }
     
     // RAG: Buscar información relevante en la base de conocimientos

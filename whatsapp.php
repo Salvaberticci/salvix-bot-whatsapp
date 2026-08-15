@@ -2,15 +2,29 @@
 require_once __DIR__ . '/config.php';
 
 /**
- * Cliente simple para enviar mensajes de WhatsApp Cloud API
+ * Cliente simple para enviar mensajes de WhatsApp Cloud API.
+ * Multi-tenant: cada tenant puede usar su propio token y phone_number_id,
+ * con respaldo a las constantes globales del .env.
  */
+
+function getWaToken() {
+    $tenant = $GLOBALS['TENANT'] ?? null;
+    if ($tenant && !empty($tenant['wa_token'])) {
+        return $tenant['wa_token'];
+    }
+    return WA_TOKEN;
+}
+
+function getPhoneId($phoneNumberId = null) {
+    return $phoneNumberId ?: WA_PHONE_ID;
+}
 
 /**
  * Envía una acción a WhatsApp (typing_on, typing_off, mark_seen)
  * para simular que un humano está escribiendo.
  */
-function sendAction($to, $action = 'typing_on') {
-    $url = "https://graph.facebook.com/v25.0/" . WA_PHONE_ID . "/messages";
+function sendAction($to, $action = 'typing_on', $phoneNumberId = null) {
+    $url = "https://graph.facebook.com/v25.0/" . getPhoneId($phoneNumberId) . "/messages";
     $payload = [
         'messaging_product' => 'whatsapp',
         'recipient_type' => 'individual',
@@ -25,17 +39,17 @@ function sendAction($to, $action = 'typing_on') {
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'Content-Type: application/json',
-        'Authorization: Bearer ' . WA_TOKEN
+        'Authorization: Bearer ' . getWaToken()
     ]);
     curl_setopt($ch, CURLOPT_TIMEOUT, 5);
     curl_exec($ch);
     curl_close($ch);
 }
 
-function sendWhatsAppText($to, $text) {
-    $url = "https://graph.facebook.com/v25.0/" . WA_PHONE_ID . "/messages";
-    logger("URL DE ENVÍO: $url | TOKEN INICIA CON: " . substr(WA_TOKEN, 0, 10) . "...");
-    
+function sendWhatsAppText($to, $text, $phoneNumberId = null) {
+    $url = "https://graph.facebook.com/v25.0/" . getPhoneId($phoneNumberId) . "/messages";
+    logger("URL DE ENVÍO: $url | TOKEN INICIA CON: " . substr(getWaToken(), 0, 10) . "...");
+
     $payload = [
         'messaging_product' => 'whatsapp',
         'recipient_type' => 'individual',
@@ -50,7 +64,7 @@ function sendWhatsAppText($to, $text) {
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'Content-Type: application/json',
-        'Authorization: Bearer ' . WA_TOKEN
+        'Authorization: Bearer ' . getWaToken()
     ]);
 
     $response = curl_exec($ch);
@@ -75,7 +89,7 @@ function downloadMetaMedia($mediaId) {
     $url = "https://graph.facebook.com/v25.0/" . $mediaId;
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . WA_TOKEN]);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . getWaToken()]);
     $resp = curl_exec($ch);
     curl_close($ch);
     
@@ -92,7 +106,7 @@ function downloadMetaMedia($mediaId) {
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Authorization: Bearer ' . WA_TOKEN,
+        'Authorization: Bearer ' . getWaToken(),
         'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     ]);
     $binary = curl_exec($ch);

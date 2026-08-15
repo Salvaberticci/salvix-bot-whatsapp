@@ -2,11 +2,22 @@
 require_once __DIR__ . '/db.php';
 
 /**
+ * Carpeta de conocimiento activa: la del tenant si hay uno, si no la compartida.
+ */
+function knowledgeDir() {
+    $tenant = $GLOBALS['TENANT'] ?? null;
+    if ($tenant) {
+        return __DIR__ . '/knowledge/' . $tenant['slug'];
+    }
+    return __DIR__ . '/knowledge';
+}
+
+/**
  * Función para indexar todos los archivos en /knowledge hacia la DB
  */
 function indexKnowledge() {
     $pdo = getDB();
-    $knowledgeDir = __DIR__ . '/knowledge';
+    $knowledgeDir = knowledgeDir();
     
     // Limpiar índice anterior
     $pdo->exec("DELETE FROM knowledge_chunks");

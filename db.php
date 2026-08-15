@@ -2,14 +2,28 @@
 require_once __DIR__ . '/config.php';
 
 /**
- * Conexión a MySQL local de Namecheap usando PDO
+ * Conexión a MySQL usando PDO.
+ * - getDB(): usa el tenant activo ($GLOBALS['TENANT']) si existe; si no, la BD del .env.
+ * - getBaseDB(): SIEMPRE la BD del .env (registro de tenants), ignore el contexto.
  */
 
-function getDB() {
-    static $pdo = null;
-    if ($pdo !== null) return $pdo;
+function connectDB($host, $dbname, $user, $pass) {
+    $dsn = "mysql:host=$host;dbname=$dbname;charset=utf8mb4";
+    try {
+        return new PDO($dsn, $user, $pass, [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        ]);
+    } catch (PDOException $e) {
+        logger("ERROR de conexión a MySQL ($dbname): " . $e->getMessage());
+        exit;
+    }
+}
 
-    // Cargamos los datos del .env (usaremos variables específicas para MySQL ahora)
+function getBaseDB() {
+    static $basePdo = null;
+    if ($basePdo !== null) return $basePdo;
+
     $host = getenv('DB_HOST') ?: 'localhost';
     $dbname = getenv('DB_NAME');
     $user = getenv('DB_USER');
@@ -20,16 +34,29 @@ function getDB() {
         exit;
     }
 
-    $dsn = "mysql:host=$host;dbname=$dbname;charset=utf8mb4";
+    $basePdo = connectDB($host, $dbname, $user, $pass);
+    return $basePdo;
+}
 
-    try {
-        $pdo = new PDO($dsn, $user, $pass, [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        ]);
-        return $pdo;
-    } catch (PDOException $e) {
-        logger("ERROR de conexión a MySQL: " . $e->getMessage());
-        exit;
+function getDB() {
+    static $pdoCache = [];
+
+    $tenant = $GLOBALS['TENANT'] ?? null;
+    $key = $tenant ? 'tenant:' . $tenant['db_name'] : 'base';
+
+    if (isset($pdoCache[$key])) return $pdoCache[$key];
+
+    if ($tenant) {
+        $pdo = connectDB(
+            $tenant['db_host'] ?: 'localhost',
+            $tenant['db_name'],
+            $tenant['db_user'],
+            $tenant['db_pass']
+        );
+    } else {
+        $pdo = getBaseDB();
     }
+
+    $pdoCache[$key] = $pdo;
+    return $pdo;
 }

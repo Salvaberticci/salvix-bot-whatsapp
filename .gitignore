@@ -7,4 +7,6 @@ DEBUG_ERROR.txt
 bot.zip
 prompts/system.md
 prompts/custom.md
+# Carpetas de conocimiento por cliente (se crean al instalar cada tenant)
+knowledge/*/
 

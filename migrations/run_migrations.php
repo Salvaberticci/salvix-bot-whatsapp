@@ -16,7 +16,7 @@ echo "<!DOCTYPE html><html lang='es'><head><meta charset='utf-8'>";
 echo "<title>Migrations Runner</title>";
 echo "<style>
     body { font-family: 'Inter', system-ui, sans-serif; background: #000; color: #fff; padding: 40px; max-width: 800px; margin: 0 auto; }
-    h1 { color: #38bdf8; margin-bottom: 8px; }
+    h1 { color: #D12424; margin-bottom: 8px; }
     .sub { color: #8a8a8a; margin-bottom: 32px; }
     .success { color: #4ade80; }
     .error { color: #ef4444; }

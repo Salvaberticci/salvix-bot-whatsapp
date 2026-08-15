@@ -1,6 +1,47 @@
-# MIGRATIONS — Salvix Wireless IA Agent
+# MIGRATIONS — Salvix
 
 Registro de todos los cambios implementados en el sistema.
+
+---
+
+## Migración 002 — Multi-tenant + Rebranding Salvix
+
+**Archivo:** `migrations/002_tenants_table.sql`
+**Estado:** ✅ Aplicada vía `setup_db.php` y `migrations/run_migrations.php`
+
+### Multi-tenant (una webhook de Meta, muchos clientes)
+
+| Archivo | Cambio |
+|---|---|
+| `migrations/002_tenants_table.sql` | Nueva — tabla `tenants` (slug, nombre, phone_number_id, waba_id, db_*, admin_*, cta_url, wa_token) |
+| `tenants.php` | Nueva — `getTenantByPhoneId()`, `getTenantBySlug()`, `installTenant()`, `installTenantSchema()`, `installBaseSchema()`, `getAllTenants()` |
+| `db.php` | `getDB()` conecta a la BD del tenant activo (`$GLOBALS['TENANT']`); cache PDO por `db_name`; fallback al `.env` |
+| `config.php` | `logger()` prefija logs con `[tenant: slug]` |
+| `whatsapp.php` | Envíos parametrizados por `phone_number_id` y token del tenant |
+| `webhook.php` | POST enruta por `metadata.phone_number_id` → tenant; número sin tenant = log + 200 |
+| `leads.php` | CTA por tenant |
+| `knowledge.php` | Carpeta de conocimiento por tenant (`knowledge/<slug>/`) |
+| `admin.php` | Login por tenant, vista Clientes (super admin), vistas aisladas |
+| `setup_db.php` | Instala esquema base + tabla `tenants` |
+| `health.php` | Reporta nº de tenants |
+| `README.md`, `.env.example` | Documentación multi-tenant |
+
+### Rebranding: "Salvix Wireless IA Agent" → "Salvix"
+
+| Archivo | Cambio |
+|---|---|
+| `admin.php`, `enviar_prueba.php`, `openai.php`, `setup_db.php`, `privacidad.html`, `README.md`, `prompts/*.md` | Nombre → **Salvix** |
+
+### Tema visual: Azul celeste → Rojo (blanco/negro/rojo)
+
+| Archivo | Cambio |
+|---|---|
+| `admin.php` | `--accent`: `#38bdf8` → `#D12424` |
+| `admin.php` | `--accent-hover`: `#7dd3fc` → `#E03030` |
+| `admin.php` | `--danger`: `#38bdf8` → `#D12424` |
+| `admin.php` | Todos los `rgba(56,189,248,...)` → `rgba(209,36,36,...)` |
+| `admin.php` | Error login: `#bae6fd` → `#fecaca` |
+| `enviar_prueba.php`, `run_migrations.php` | Gradientes y acentos → rojo |
 
 ---
 

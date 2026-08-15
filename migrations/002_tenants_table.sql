@@ -1,0 +1,17 @@
+CREATE TABLE IF NOT EXISTS tenants (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    slug VARCHAR(50) NOT NULL UNIQUE,
+    nombre VARCHAR(255) NOT NULL,
+    phone_number_id VARCHAR(50) NOT NULL UNIQUE,
+    waba_id VARCHAR(50),
+    db_host VARCHAR(255) DEFAULT 'localhost',
+    db_name VARCHAR(255) NOT NULL,
+    db_user VARCHAR(255) NOT NULL,
+    db_pass VARCHAR(255),
+    admin_user VARCHAR(255) NOT NULL,
+    admin_pass VARCHAR(255) NOT NULL,
+    cta_url VARCHAR(500),
+    wa_token TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

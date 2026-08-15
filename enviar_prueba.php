@@ -78,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Enviar Mensaje de Prueba - Salvix Wireless IA Agent</title>
+    <title>Enviar Mensaje de Prueba - Salvix</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -99,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             position: fixed;
             width: 600px;
             height: 600px;
-            background: radial-gradient(circle, rgba(56, 189, 248, 0.08) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(209, 36, 36, 0.08) 0%, transparent 70%);
             top: -200px;
             right: -200px;
             pointer-events: none;
@@ -143,7 +143,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             width: 100%;
             max-width: 320px;
             padding: 15px;
-            background: linear-gradient(135deg, #38bdf8, #7dd3fc);
+            background: linear-gradient(135deg, #D12424, #E03030);
             border: none;
             border-radius: 12px;
             color: #000;
@@ -153,7 +153,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             cursor: pointer;
             transition: all 0.2s ease;
         }
-        .btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(56, 189, 248, 0.3); }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(209, 36, 36, 0.3); }
         .btn:disabled { opacity: 0.5; cursor: wait; transform: none; }
         .result {
             margin-top: 18px;
@@ -208,13 +208,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             max-height: 400px;
             overflow-y: auto;
         }
-        .terminal-body .cmd { color: #38bdf8; }
+        .terminal-body .cmd { color: #D12424; }
         .terminal-body .out { color: #8A8A8A; }
     </style>
 </head>
 <body>
     <div class="card">
-        <div class="logo"><img src="img/logo.png" alt="Salvix Wireless IA Agent"></div>
+        <div class="logo"><img src="img/logo.png" alt="Salvix"></div>
         <h1>Enviar Mensaje de Prueba</h1>
         <p class="subtitle">WhatsApp Cloud API - Meta Tech Provider</p>
 

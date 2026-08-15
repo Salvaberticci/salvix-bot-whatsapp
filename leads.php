@@ -83,7 +83,9 @@ function extractLeadData($history) {
 }
 
 function cleanReply($reply) {
-    $clean = str_replace(['[[ACTION_LINK]]', '[[AGENDA_LINK]]'], getenv('QUALIFIED_CTA_URL'), $reply);
+    $tenant = $GLOBALS['TENANT'] ?? null;
+    $cta = ($tenant && !empty($tenant['cta_url'])) ? $tenant['cta_url'] : getenv('QUALIFIED_CTA_URL');
+    $clean = str_replace(['[[ACTION_LINK]]', '[[AGENDA_LINK]]'], $cta, $reply);
     $clean = preg_replace('/\[\[DESCALIFICADO.*?\]\]/i', '', $clean);
     return trim($clean);
 }

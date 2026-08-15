@@ -33,5 +33,7 @@ define('GROQ_MODEL', $_ENV['GROQ_MODEL'] ?? getenv('GROQ_MODEL') ?: ($_ENV['OPEN
 
 function logger($msg) {
     $date = date('Y-m-d H:i:s');
-    file_put_contents(__DIR__ . '/debug.log', "[$date] $msg\n", FILE_APPEND);
+    $tenant = $GLOBALS['TENANT'] ?? null;
+    $prefix = $tenant ? "[tenant: {$tenant['slug']}] " : '';
+    file_put_contents(__DIR__ . '/debug.log', "[$date] $prefix$msg\n", FILE_APPEND);
 }

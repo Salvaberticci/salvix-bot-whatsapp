@@ -2,29 +2,49 @@
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/knowledge.php';
 require_once __DIR__ . '/whatsapp.php';
+require_once __DIR__ . '/tenants.php';
 session_start();
+
+// MULTI-TENANT: si hay ?tenant=slug, el panel opera sobre ese cliente.
+// Sin parámetro, es el panel base / super admin.
+$tenantSlug = $_GET['tenant'] ?? '';
+$tenant = $tenantSlug ? getTenantBySlug($tenantSlug) : null;
+if ($tenant) {
+    $GLOBALS['TENANT'] = $tenant;
+}
+$sessionKey = $tenant ? 'admin_' . $tenant['slug'] : 'admin';
+$isTenantAdmin = $tenant !== null;
 
 // 1. Autenticación Simple
 if (isset($_GET['logout'])) {
     session_destroy();
-    header("Location: admin.php");
+    $qs = $tenantSlug ? "?tenant=$tenantSlug" : '';
+    header("Location: admin.php$qs");
     exit;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
-    if ($_POST['username'] === ($_ENV['ADMIN_USER'] ?? getenv('ADMIN_USER')) && $_POST['password'] === ($_ENV['ADMIN_PASSWORD'] ?? getenv('ADMIN_PASSWORD'))) {
-        $_SESSION['admin'] = true;
+    $ok = false;
+    if ($tenant) {
+        $ok = ($_POST['username'] === $tenant['admin_user'] && $_POST['password'] === $tenant['admin_pass']);
+    } else {
+        $ok = ($_POST['username'] === ($_ENV['ADMIN_USER'] ?? getenv('ADMIN_USER')) && $_POST['password'] === ($_ENV['ADMIN_PASSWORD'] ?? getenv('ADMIN_PASSWORD')));
+    }
+    if ($ok) {
+        $_SESSION[$sessionKey] = true;
     } else {
         $error = "Credenciales incorrectas";
     }
 }
 
-if (!isset($_SESSION['admin'])) {
+$tenantsList = getAllTenants();
+
+if (!isset($_SESSION[$sessionKey])) {
     ?>
     <!DOCTYPE html>
     <html lang="es">
     <head>
-        <title>Salvix Wireless IA Agent Admin - Login</title>
+        <title>Salvix Admin - Login</title>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -47,7 +67,7 @@ if (!isset($_SESSION['admin'])) {
                 position: absolute;
                 width: 600px;
                 height: 600px;
-                background: radial-gradient(circle, rgba(56, 189, 248, 0.08) 0%, transparent 70%);
+                background: radial-gradient(circle, rgba(209, 36, 36, 0.08) 0%, transparent 70%);
                 top: -200px;
                 right: -200px;
                 pointer-events: none;
@@ -101,9 +121,9 @@ if (!isset($_SESSION['admin'])) {
                 box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4);
             }
             .login-error {
-                background: rgba(56, 189, 248, 0.1);
-                border: 1px solid rgba(56, 189, 248, 0.2);
-                color: #bae6fd;
+                background: rgba(209, 36, 36, 0.1);
+                border: 1px solid rgba(209, 36, 36, 0.2);
+                color: #fecaca;
                 padding: 12px 16px;
                 border-radius: 10px;
                 font-size: 13px;
@@ -135,8 +155,8 @@ if (!isset($_SESSION['admin'])) {
                 outline: none;
             }
             .form-group input:focus {
-                border-color: #38bdf8;
-                box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+                border-color: #D12424;
+                box-shadow: 0 0 0 3px rgba(209, 36, 36, 0.15);
             }
             .form-group input::placeholder {
                 color: #555555;
@@ -144,7 +164,7 @@ if (!isset($_SESSION['admin'])) {
             .login-btn {
                 width: 100%;
                 padding: 14px;
-                background: linear-gradient(135deg, #38bdf8, #7dd3fc);
+                background: linear-gradient(135deg, #D12424, #E03030);
                 border: none;
                 border-radius: 12px;
                 color: #FFFFFF;
@@ -156,7 +176,7 @@ if (!isset($_SESSION['admin'])) {
             }
             .login-btn:hover {
                 transform: translateY(-1px);
-                box-shadow: 0 8px 24px rgba(56, 189, 248, 0.3);
+                box-shadow: 0 8px 24px rgba(209, 36, 36, 0.3);
             }
             .login-btn:active {
                 transform: translateY(0);
@@ -169,13 +189,18 @@ if (!isset($_SESSION['admin'])) {
     <body>
         <div class="login-container">
             <div class="login-header">
-                <div class="login-logo"><img src="img/logo.png" alt="Salvix Wireless IA Agent" style="width:100%;height:100%;object-fit:contain;"></div>
-                <h1>Salvix Wireless IA Agent Admin</h1>
+                <div class="login-logo"><img src="img/logo.png" alt="Salvix" style="width:100%;height:100%;object-fit:contain;"></div>
+                <h1>Salvix Admin</h1>
                 <p>Panel de control del bot</p>
             </div>
             <div class="login-card">
                 <?php if(isset($error)): ?>
                     <div class="login-error"><?php echo $error; ?></div>
+                <?php endif; ?>
+                <?php if($tenant): ?>
+                    <div class="login-error" style="margin-bottom:20px;">
+                        Accediendo al panel de: <strong><?php echo htmlspecialchars($tenant['nombre']); ?></strong>
+                    </div>
                 <?php endif; ?>
                 <form method="POST">
                     <div class="form-group">
@@ -188,6 +213,16 @@ if (!isset($_SESSION['admin'])) {
                     </div>
                     <button type="submit" name="login" class="login-btn">Entrar al panel</button>
                 </form>
+                <?php if(!$tenant && !empty($tenantsList)): ?>
+                    <div style="margin-top:24px; padding-top:20px; border-top:1px solid rgba(42,42,42,0.6);">
+                        <p style="color:#8A8A8A; font-size:12px; text-transform:uppercase; letter-spacing:0.05em; font-weight:600; margin-bottom:12px;">Acceso por cliente</p>
+                        <?php foreach($tenantsList as $t): ?>
+                            <a href="admin.php?tenant=<?php echo urlencode($t['slug']); ?>" class="login-btn" style="display:block; text-align:center; margin-bottom:8px; font-size:13px; padding:11px; text-decoration:none;">
+                                <?php echo htmlspecialchars($t['nombre']); ?>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
     </body>
@@ -254,8 +289,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_prompt'])) {
     }
 }
 
-// 2.1 Lógica de Guardado de APIs (.env)
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_api'])) {
+// 2.1 Lógica de Guardado de APIs (.env) — solo super admin
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_api']) && !$tenant) {
     $envPath = __DIR__ . '/.env';
     $envContent = file_get_contents($envPath);
     
@@ -287,7 +322,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_api'])) {
 
 // 2.2 Lógica de Archivos de Conocimiento
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_file'])) {
-    $target_dir = __DIR__ . '/knowledge/';
+    $target_dir = knowledgeDir() . '/';
     $target_file = $target_dir . basename($_FILES["knowledge_file"]["name"]);
     $fileType = strtolower(pathinfo($target_file,PATHINFO_EXTENSION));
     
@@ -304,7 +339,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_file'])) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_file'])) {
     $file = basename($_POST['file_name']);
-    @unlink(__DIR__ . '/knowledge/' . $file);
+    @unlink(knowledgeDir() . '/' . $file);
     $success_msg = "Archivo eliminado.";
 }
 
@@ -368,6 +403,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_chat'])) {
     }
 }
 
+// 2.6 Lógica de Clientes (solo super admin, panel base)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_tenant']) && !$tenant) {
+    try {
+        $cfg = [
+            'slug'           => trim($_POST['tenant_slug'] ?? ''),
+            'nombre'         => trim($_POST['tenant_nombre'] ?? ''),
+            'phone_number_id'=> trim($_POST['tenant_phone_id'] ?? ''),
+            'waba_id'        => trim($_POST['tenant_waba_id'] ?? ''),
+            'db_host'        => trim($_POST['tenant_db_host'] ?? '') ?: 'localhost',
+            'db_name'        => trim($_POST['tenant_db_name'] ?? ''),
+            'db_user'        => trim($_POST['tenant_db_user'] ?? ''),
+            'db_pass'        => $_POST['tenant_db_pass'] ?? '',
+            'admin_user'     => trim($_POST['tenant_admin_user'] ?? ''),
+            'admin_pass'     => $_POST['tenant_admin_pass'] ?? '',
+            'cta_url'        => trim($_POST['tenant_cta_url'] ?? ''),
+            'wa_token'       => trim($_POST['tenant_wa_token'] ?? ''),
+        ];
+        if (!$cfg['slug'] || !$cfg['phone_number_id']) {
+            throw new Exception("El slug y el phone_number_id son obligatorios.");
+        }
+        $resolved = installTenant($cfg);
+        $pdo = getBaseDB();
+        $stmt = $pdo->prepare("INSERT INTO tenants (slug, nombre, phone_number_id, waba_id, db_host, db_name, db_user, db_pass, admin_user, admin_pass, cta_url, wa_token)
+                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                               ON DUPLICATE KEY UPDATE nombre = VALUES(nombre), phone_number_id = VALUES(phone_number_id), waba_id = VALUES(waba_id), db_host = VALUES(db_host), db_name = VALUES(db_name), db_user = VALUES(db_user), db_pass = VALUES(db_pass), admin_user = VALUES(admin_user), admin_pass = VALUES(admin_pass), cta_url = VALUES(cta_url), wa_token = VALUES(wa_token)");
+        $stmt->execute([$resolved['slug'], $resolved['nombre'], $resolved['phone_number_id'], $resolved['waba_id'], $resolved['db_host'], $resolved['db_name'], $resolved['db_user'], $resolved['db_pass'], $resolved['admin_user'], $resolved['admin_pass'], $resolved['cta_url'], $resolved['wa_token']]);
+        $success_msg = "Cliente '{$resolved['nombre']}' registrado (BD: {$resolved['db_name']}).";
+    } catch (Exception $e) {
+        $error_msg = "Error al crear el cliente: " . $e->getMessage();
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_tenant']) && !$tenant) {
+    $slug = trim($_POST['tenant_slug'] ?? '');
+    if ($slug) {
+        $pdo = getBaseDB();
+        $stmt = $pdo->prepare("DELETE FROM tenants WHERE slug = ?");
+        $stmt->execute([$slug]);
+        $dir = __DIR__ . '/knowledge/' . $slug;
+        if (is_dir($dir)) {
+            array_map('unlink', glob($dir . '/*'));
+            @rmdir($dir);
+        }
+        $success_msg = "Cliente '$slug' eliminado del registro (la base de datos se conserva).";
+    }
+}
+
 // 3. Lógica del Dashboard
 $pdo = getDB();
 $stmt = $pdo->prepare("SELECT `value` FROM settings WHERE `key` = 'system_prompt'");
@@ -383,11 +465,19 @@ $qualifiedLeads = $pdo->query("SELECT COUNT(*) FROM leads WHERE qualification_st
 $threads = $pdo->query("SELECT wa_id, MAX(created_at) as last_msg FROM messages GROUP BY wa_id ORDER BY last_msg DESC LIMIT 50")->fetchAll();
 
 $currentView = $_GET['view'] ?? 'dashboard';
+
+// Los clientes (tenants) no pueden ver la configuración global de APIs
+if ($tenant && $currentView === 'api') {
+    $currentView = 'dashboard';
+}
+if (!$tenant && $currentView === 'clientes') {
+    // Sin más validación: vista de gestión de clientes
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <title>Salvix Wireless IA Agent Admin</title>
+    <title>Salvix Admin</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -401,14 +491,14 @@ $currentView = $_GET['view'] ?? 'dashboard';
             --surface-3: #1a1a1a;
             --border: #2a2a2a;
             --border-light: #3a3a3a;
-            --accent: #38bdf8;
-            --accent-hover: #7dd3fc;
-            --accent-muted: rgba(56, 189, 248, 0.12);
+            --accent: #D12424;
+            --accent-hover: #E03030;
+            --accent-muted: rgba(209, 36, 36, 0.12);
             --text: #FFFFFF;
             --text-2: #CCCCCC;
             --text-3: #8A8A8A;
             --text-4: #555555;
-            --danger: #38bdf8;
+            --danger: #D12424;
             --success: #4ade80;
             --info: #8A8A8A;
             --sidebar-width: 260px;
@@ -575,8 +665,8 @@ $currentView = $_GET['view'] ?? 'dashboard';
             color: var(--text-3);
         }
         .card-glow {
-            border-color: rgba(56, 189, 248, 0.2);
-            box-shadow: 0 0 40px rgba(56, 189, 248, 0.05);
+            border-color: rgba(209, 36, 36, 0.2);
+            box-shadow: 0 0 40px rgba(209, 36, 36, 0.05);
         }
 
         .kpi-grid {
@@ -667,7 +757,7 @@ $currentView = $_GET['view'] ?? 'dashboard';
             color: #FFFFFF;
         }
         .btn-primary:hover {
-            box-shadow: 0 4px 16px rgba(56, 189, 248, 0.3);
+            box-shadow: 0 4px 16px rgba(209, 36, 36, 0.3);
             transform: translateY(-1px);
         }
         .btn-secondary {
@@ -680,12 +770,12 @@ $currentView = $_GET['view'] ?? 'dashboard';
             color: var(--text);
         }
         .btn-danger {
-            background: rgba(56, 189, 248, 0.12);
+            background: rgba(209, 36, 36, 0.12);
             color: var(--danger);
-            border: 1px solid rgba(56, 189, 248, 0.2);
+            border: 1px solid rgba(209, 36, 36, 0.2);
         }
         .btn-danger:hover {
-            background: rgba(56, 189, 248, 0.2);
+            background: rgba(209, 36, 36, 0.2);
         }
         .btn-sm {
             padding: 6px 12px;
@@ -744,7 +834,7 @@ $currentView = $_GET['view'] ?? 'dashboard';
         }
         .form-control:focus {
             border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
+            box-shadow: 0 0 0 3px rgba(209, 36, 36, 0.12);
         }
         .form-control::placeholder { color: var(--text-4); }
         textarea.form-control {
@@ -780,8 +870,8 @@ $currentView = $_GET['view'] ?? 'dashboard';
             color: var(--success);
         }
         .alert-error {
-            background: rgba(56, 189, 248, 0.08);
-            border: 1px solid rgba(56, 189, 248, 0.15);
+            background: rgba(209, 36, 36, 0.08);
+            border: 1px solid rgba(209, 36, 36, 0.15);
             color: var(--danger);
         }
 
@@ -818,9 +908,9 @@ $currentView = $_GET['view'] ?? 'dashboard';
             border-bottom-left-radius: 4px;
         }
         .chat-msg.assistant .chat-bubble {
-            background: linear-gradient(135deg, rgba(56, 189, 248, 0.15), rgba(56, 189, 248, 0.06));
+            background: linear-gradient(135deg, rgba(209, 36, 36, 0.15), rgba(209, 36, 36, 0.06));
             color: var(--text);
-            border: 1px solid rgba(56, 189, 248, 0.15);
+            border: 1px solid rgba(209, 36, 36, 0.15);
             border-bottom-right-radius: 4px;
         }
         .chat-bubble.media {
@@ -969,13 +1059,23 @@ $currentView = $_GET['view'] ?? 'dashboard';
     <!-- ===== SIDEBAR ===== -->
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-brand">
-            <div class="sidebar-logo"><img src="img/logo.png" alt="Salvix Wireless IA Agent" style="width:100%;height:100%;object-fit:contain;"></div>
+            <div class="sidebar-logo"><img src="img/logo.png" alt="Salvix" style="width:100%;height:100%;object-fit:contain;"></div>
             <div class="sidebar-brand-text">
-                <h2>Salvix Wireless IA Agent</h2>
-                <span>Admin Panel</span>
+                <h2><?php echo $tenant ? htmlspecialchars($tenant['nombre']) : 'Salvix'; ?></h2>
+                <span><?php echo $tenant ? 'Cliente: ' . htmlspecialchars($tenant['slug']) : 'Admin Panel'; ?></span>
             </div>
         </div>
         <nav class="sidebar-nav">
+            <?php if(!$tenant): ?>
+            <div class="sidebar-section">Plataforma</div>
+            <a href="?view=clientes" class="nav-item <?php echo $currentView === 'clientes' ? 'active' : ''; ?>">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                Clientes
+                <?php if(!empty($tenantsList)): ?>
+                    <span class="nav-badge"><?php echo count($tenantsList); ?></span>
+                <?php endif; ?>
+            </a>
+            <?php endif; ?>
             <div class="sidebar-section">General</div>
             <a href="admin.php" class="nav-item <?php echo $currentView === 'dashboard' ? 'active' : ''; ?>">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
@@ -1004,10 +1104,12 @@ $currentView = $_GET['view'] ?? 'dashboard';
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                 Bot Config
             </a>
+            <?php if(!$tenant): ?>
             <a href="?view=api" class="nav-item <?php echo $currentView === 'api' ? 'active' : ''; ?>">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-8-4-8-10V5l8-3 8 3v7c0 6-8 10-8 10z"/></svg>
                 APIs & Tokens
             </a>
+            <?php endif; ?>
 
             <div class="sidebar-section">Sistema</div>
             <a href="?view=logs" class="nav-item <?php echo $currentView === 'logs' ? 'active' : ''; ?>">
@@ -1036,6 +1138,7 @@ $currentView = $_GET['view'] ?? 'dashboard';
                     <?php
                     $titles = [
                         'dashboard' => 'Dashboard',
+                        'clientes' => 'Clientes',
                         'leads' => 'Leads & Prospectos',
                         'inventory' => 'Inventario',
                         'knowledge' => 'Base de Conocimiento',
@@ -1097,7 +1200,7 @@ $currentView = $_GET['view'] ?? 'dashboard';
                 </div>
 
             <?php elseif ($currentView === 'knowledge'): 
-                $files = array_diff(scandir(__DIR__ . '/knowledge'), array('.', '..', '.htaccess'));
+                $files = array_diff(scandir(knowledgeDir()), array('.', '..', '.htaccess'));
                 ?>
                 <!-- ===== KNOWLEDGE VIEW ===== -->
                 <div class="card">
@@ -1242,9 +1345,18 @@ $currentView = $_GET['view'] ?? 'dashboard';
                 </div>
 
             <?php elseif ($currentView === 'logs'): 
-                $logs = @file_get_contents(__DIR__ . '/debug.log') ?: "No hay registros aún.";
+                $logs = @file_get_contents(__DIR__ . '/debug.log') ?: "";
                 $logLines = array_reverse(explode("\n", trim($logs)));
+                if ($tenant) {
+                    $tag = "[tenant: {$tenant['slug']}]";
+                    $logLines = array_values(array_filter($logLines, function($line) use ($tag) {
+                        return strpos($line, $tag) !== false;
+                    }));
+                }
                 $lastLogs = array_slice($logLines, 0, 50);
+                if (empty($lastLogs)) {
+                    $lastLogs = [($tenant ? "No hay registros para este cliente aún." : "No hay registros aún.")];
+                }
                 ?>
                 <!-- ===== LOGS VIEW ===== -->
                 <div class="card">
@@ -1322,6 +1434,130 @@ $currentView = $_GET['view'] ?? 'dashboard';
                             </tbody>
                         </table>
                     </div>
+                </div>
+
+            <?php elseif ($currentView === 'clientes'): ?>
+                <!-- ===== CLIENTES VIEW (super admin) ===== -->
+                <div class="card card-glow">
+                    <div class="card-header">
+                        <div>
+                            <h3>Registrar Nuevo Cliente</h3>
+                            <p class="label">Cada cliente = su número de WhatsApp, su base de datos, su prompt y su knowledge</p>
+                        </div>
+                        <span class="badge badge-warning">Webhook compartido</span>
+                    </div>
+                    <form method="POST">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Slug (identificador único)</label>
+                                <input type="text" class="form-control" name="tenant_slug" placeholder="restaurante_x" style="font-family:monospace; font-size:13px;" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Nombre del negocio</label>
+                                <input type="text" class="form-control" name="tenant_nombre" placeholder="Restaurante X" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Phone Number ID (Meta)</label>
+                                <input type="text" class="form-control" name="tenant_phone_id" placeholder="ej: 105389103276100" style="font-family:monospace; font-size:13px;" required>
+                            </div>
+                            <div class="form-group">
+                                <label>WABA ID (opcional)</label>
+                                <input type="text" class="form-control" name="tenant_waba_id" placeholder="ej: 105389103276100" style="font-family:monospace; font-size:13px;">
+                            </div>
+                        </div>
+
+                        <hr style="border:0; border-top:1px solid var(--border); margin:20px 0;">
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Host BD</label>
+                                <input type="text" class="form-control" name="tenant_db_host" value="localhost">
+                            </div>
+                            <div class="form-group">
+                                <label>Nombre BD (vacío = salvix_&lt;slug&gt;)</label>
+                                <input type="text" class="form-control" name="tenant_db_name" placeholder="salvix_restaurante_x" style="font-family:monospace; font-size:13px;">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Usuario BD</label>
+                                <input type="text" class="form-control" name="tenant_db_user" style="font-family:monospace; font-size:13px;" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Contraseña BD</label>
+                                <input type="password" class="form-control" name="tenant_db_pass" style="font-family:monospace; font-size:13px;">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Usuario del panel</label>
+                                <input type="text" class="form-control" name="tenant_admin_user" value="admin" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Contraseña del panel</label>
+                                <input type="text" class="form-control" name="tenant_admin_pass" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Enlace CTA (agendamiento / WhatsApp)</label>
+                                <input type="text" class="form-control" name="tenant_cta_url" placeholder="https://wa.me/584121234567">
+                            </div>
+                            <div class="form-group">
+                                <label>Token WhatsApp propio (opcional)</label>
+                                <input type="text" class="form-control" name="tenant_wa_token" placeholder="En blanco = token global" style="font-family:monospace; font-size:13px;">
+                            </div>
+                        </div>
+                        <button type="submit" name="save_tenant" class="btn btn-primary">Crear e Instalar Cliente</button>
+                        <p style="font-size:11px; color:var(--text-4); margin-top:10px;">
+                            Crea la base de datos (requiere privilegios de CREATE), instala el esquema, siembra el prompt y crea la carpeta knowledge/&lt;slug&gt;/.
+                        </p>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Clientes Registrados</h3>
+                        <span class="badge badge-info"><?php echo count($tenantsList); ?> clientes</span>
+                    </div>
+                    <?php if (!empty($tenantsList)): ?>
+                        <div style="overflow-x:auto;">
+                            <table>
+                                <thead>
+                                    <tr><th>Cliente</th><th>Phone ID</th><th>BD</th><th>Panel</th><th>Acción</th></tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($tenantsList as $t): ?>
+                                    <tr>
+                                        <td>
+                                            <strong style="color:var(--text);"><?php echo htmlspecialchars($t['nombre']); ?></strong>
+                                            <br><span style="font-size:12px; color:var(--text-3); font-family:monospace;"><?php echo htmlspecialchars($t['slug']); ?></span>
+                                        </td>
+                                        <td style="font-family:monospace; font-size:13px;"><?php echo htmlspecialchars($t['phone_number_id']); ?></td>
+                                        <td style="font-size:13px;"><?php echo htmlspecialchars($t['db_name']); ?></td>
+                                        <td>
+                                            <a href="admin.php?tenant=<?php echo urlencode($t['slug']); ?>" class="btn btn-primary btn-sm">Entrar</a>
+                                        </td>
+                                        <td>
+                                            <form method="POST" style="display:inline;" onsubmit="return confirm('¿Eliminar el cliente <?php echo addslashes($t['nombre']); ?> del registro? La base de datos se conserva.');">
+                                                <input type="hidden" name="tenant_slug" value="<?php echo htmlspecialchars($t['slug']); ?>">
+                                                <button type="submit" name="delete_tenant" class="btn btn-danger btn-sm">Eliminar</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    <?php else: ?>
+                        <div class="empty-state">
+                            <div class="icon">🏢</div>
+                            <h4>No hay clientes registrados</h4>
+                            <p>Registra tu primer cliente arriba: todos comparten el mismo webhook de Meta</p>
+                        </div>
+                    <?php endif; ?>
                 </div>
 
             <?php elseif ($currentView === 'api'): ?>
@@ -1447,7 +1683,7 @@ $currentView = $_GET['view'] ?? 'dashboard';
                                 <h3>Chat: <span style="font-family:monospace; color:var(--accent);"><?php echo htmlspecialchars($chatId); ?></span></h3>
                                 <p class="label">Historial de conversación</p>
                             </div>
-                            <a href="admin.php" class="btn btn-secondary btn-sm">← Volver</a>
+                            <a href="admin.php<?php echo $tenantSlug ? '?tenant=' . urlencode($tenantSlug) : ''; ?>" class="btn btn-secondary btn-sm">← Volver</a>
                         </div>
                         <div class="chat-container" id="chatContainer">
                             <?php foreach ($messages as $m): 

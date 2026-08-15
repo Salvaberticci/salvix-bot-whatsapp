@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/tenants.php';
 require_once __DIR__ . '/openai.php';
 require_once __DIR__ . '/whatsapp.php';
 require_once __DIR__ . '/leads.php';
@@ -93,6 +94,10 @@ $changes = $entry['changes'][0] ?? null;
 $value = $changes['value'] ?? null;
 $message = $value['messages'][0] ?? null;
 
+// MULTI-TENANT: identificar qué cliente (número) envió el mensaje.
+// Todos los números de todos los clientes comparten esta misma webhook.
+$phoneNumberId = $value['metadata']['phone_number_id'] ?? null;
+
 if ($message) {
     $wa_id = $message['from'];
     $msg_id = $message['id'];
@@ -105,6 +110,17 @@ if ($message) {
     @set_time_limit(90);
 
     try {
+        // Resolver el tenant por phone_number_id
+        $tenant = getTenantByPhoneId($phoneNumberId);
+        if (!$tenant) {
+            logger("MENSAJE DE NÚMERO SIN TENANT: phone_number_id=$phoneNumberId de $wa_id. Ignorado.");
+            http_response_code(200);
+            echo "OK";
+            exit;
+        }
+        $GLOBALS['TENANT'] = $tenant;
+        logger("TENANT RESUELTO: {$tenant['slug']} ({$tenant['nombre']}) para phone_number_id=$phoneNumberId");
+
         logger("CONECTANDO A DB...");
         $pdo = getDB();
         logger("DB CONECTADA.");
@@ -130,7 +146,7 @@ if ($message) {
         }
 
         // Mostrar "escribiendo..." de inmediato para todos los tipos de mensaje
-        sendAction($wa_id, 'typing_on');
+        sendAction($wa_id, 'typing_on', $phoneNumberId);
 
         // A. PROCESAR SEGÚN EL TIPO DE MENSAJE
         if ($type === 'text') {
@@ -200,14 +216,14 @@ if ($message) {
         $initialDelay = min(round($totalLen * 0.05), 4);
         if ($initialDelay < 1.5) $initialDelay = 1.5;
         sleep($initialDelay);
-        sendAction($wa_id, 'typing_off');
+        sendAction($wa_id, 'typing_off', $phoneNumberId);
 
         // 6. Enviar a WhatsApp en fragmentos naturales
         $chunks = splitMessage($cleanReply);
         $fullLog = '';
         foreach ($chunks as $i => $chunk) {
             logger("ENVIANDO FRAGMENTO " . ($i + 1) . "/" . count($chunks) . " a $wa_id");
-            sendWhatsAppText($wa_id, $chunk);
+            sendWhatsAppText($wa_id, $chunk, $phoneNumberId);
             $fullLog .= ($fullLog ? "\n---\n" : '') . $chunk;
             if ($i < count($chunks) - 1) {
                 sleep(rand(2, 3)); // delay entre fragmentos
