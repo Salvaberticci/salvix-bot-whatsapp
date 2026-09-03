@@ -28,7 +28,7 @@ function buildSystemPrompt($userMessage = "") {
     
     // RAG: Buscar información relevante en la base de conocimientos
     if (!empty($userMessage)) {
-        $chunks = searchKnowledge($userMessage, 5);
+        $chunks = searchKnowledge($userMessage, 3);
         if (!empty($chunks)) {
             logger("RAG: Encontrados " . count($chunks) . " fragmentos relevantes para: '$userMessage'");
             $prompt .= "\n\n--- INFORMACIÓN DE APOYO (RELEVANTE PARA ESTA CONSULTA) ---\n";
@@ -41,32 +41,71 @@ function buildSystemPrompt($userMessage = "") {
         }
     }
     
-    // Leer el Inventario de la base de datos
+    // Leer el Menú de la base de datos
     require_once __DIR__ . '/db.php';
     try {
         $pdo = getDB();
-        $inventory = $pdo->query("SELECT * FROM inventory WHERE stock > 0")->fetchAll();
+        $inventory = $pdo->query("SELECT * FROM inventory WHERE active = 1 ORDER BY category, item_name")->fetchAll();
         if (!empty($inventory)) {
-            logger("INVENTARIO: Cargados " . count($inventory) . " productos con stock activo.");
-            $prompt .= "\n\n--- PRODUCTOS Y PRECIOS DISPONIBLES ---\n";
+            logger("MENÚ: Cargados " . count($inventory) . " productos activos.");
+            $prompt .= "\n\n--- MENÚ DISPONIBLE ---\n";
+            $currentCat = null;
             foreach ($inventory as $i) {
-                $prompt .= "- {$i['item_name']} | Precio: $" . number_format($i['price'], 2) . " | Stock: {$i['stock']}\n";
+                $cat = $i['category'] ?: 'General';
+                if ($cat !== $currentCat) {
+                    $prompt .= "\n[{$cat}]\n";
+                    $currentCat = $cat;
+                }
+                $prompt .= "- {$i['item_name']} | $" . number_format($i['price'], 2);
+                if (!empty($i['description'])) $prompt .= " | " . $i['description'];
+                $prompt .= "\n";
             }
         } else {
-            logger("INVENTARIO: No hay productos con stock > 0 en la base de datos.");
+            logger("MENÚ: No hay productos activos en la base de datos.");
         }
     } catch (Exception $e) {
-        logger("ERROR INVENTARIO: " . $e->getMessage());
+        logger("ERROR MENÚ: " . $e->getMessage());
     }
-    
+
+    // Métodos de pago reales configurados en el panel (NO inventar otros)
+    try {
+        $stmt = $pdo->prepare("SELECT `value` FROM settings WHERE `key` = 'payment_methods'");
+        $stmt->execute();
+        $raw = $stmt->fetchColumn();
+        $methods = $raw ? json_decode($raw, true) : null;
+        if (is_array($methods) && (!empty($methods['pago_movil']) || !empty($methods['transferencia']))) {
+            logger("PAGOS: Datos de pago reales cargados desde el panel.");
+            $prompt .= "\n\n--- FORMAS DE PAGO REALES (del panel del restaurante: dale al cliente EXACTAMENTE estos datos) ---\n";
+            $pm = $methods['pago_movil'] ?? [];
+            if (!empty($pm)) {
+                $prompt .= "Pago movil:\n";
+                if (!empty($pm['banco']))    $prompt .= "- Banco: {$pm['banco']}\n";
+                if (!empty($pm['telefono'])) $prompt .= "- Telefono: {$pm['telefono']}\n";
+                if (!empty($pm['documento']))$prompt .= "- Documento: {$pm['documento']}\n";
+                if (!empty($pm['titular']))  $prompt .= "- Titular: {$pm['titular']}\n";
+            }
+            $tr = $methods['transferencia'] ?? [];
+            if (!empty($tr)) {
+                $prompt .= "Transferencia:\n";
+                if (!empty($tr['banco']))   $prompt .= "- Banco: {$tr['banco']}\n";
+                if (!empty($tr['cuenta']))  $prompt .= "- Cuenta: {$tr['cuenta']}\n";
+                if (!empty($tr['titular'])) $prompt .= "- Titular: {$tr['titular']}\n";
+            }
+            $prompt .= "Cuando el cliente pida los datos de pago, pasale exactamente los datos de arriba (y si no estan completos, di \"te paso los datos de pago en un momentico\").\n";
+        }
+    } catch (Exception $e) {
+        logger("ERROR PAGOS: " . $e->getMessage());
+    }
+
     return $prompt;
 }
 
-function completeChat($userMessage, $history = []) {
+function completeChat($userMessage, $history = [], $premium = false) {
     $url = GROQ_BASE_URL . '/chat/completions';
-    $model = GROQ_MODEL;
+    // Enrutamiento: gpt-oss-120b solo en momentos críticos (pedidos, pagos, reclamos)
+    $model = $premium ? 'openai/gpt-oss-120b' : GROQ_MODEL;
 
-    logger("DEBUG: URL GROQ: $url | MODELO: $model");
+    logger("DEBUG: URL GROQ: $url | MODELO: $model" . ($premium ? ' (PREMIUM)' : ''));
     
     // Reactivamos RAG e Inventario
     $systemPrompt = buildSystemPrompt($userMessage); 
@@ -83,8 +122,8 @@ function completeChat($userMessage, $history = []) {
     $payload = [
         'model' => $model,
         'messages' => $messages,
-        'temperature' => 0.3,
-        'max_tokens' => 200
+        'temperature' => 0.7,
+        'max_tokens' => 1500
     ];
 
     logger("DEBUG: Enviando cURL a Groq...");
@@ -105,7 +144,7 @@ function completeChat($userMessage, $history = []) {
 
     if ($httpCode !== 200) {
         logger("ERROR en completeChat (Groq): Código HTTP $httpCode | Error cURL: $curlError | Respuesta: $response");
-        return "Lo siento, tengo problemas para procesar tu mensaje ahora mismo.";
+        return "Uy, se me cortó la conexión un segundito. ¿Me repites lo que necesitas?";
     }
 
     $data = json_decode($response, true);
@@ -158,9 +197,9 @@ function analyzeImage($filePath, $userText = "Describe esta imagen", $history = 
     ];
 
     $payload = [
-        'model' => 'meta-llama/llama-4-scout-17b-16e-instruct',
+        'model' => VISION_MODEL,
         'messages' => $messages,
-        'temperature' => 0.3,
+        'temperature' => 0.7,
         'max_tokens' => 200
     ];
 
@@ -181,7 +220,7 @@ function analyzeImage($filePath, $userText = "Describe esta imagen", $history = 
 
     if ($httpCode !== 200) {
         logger("ERROR analyzeImage (Groq): HTTP $httpCode | Error cURL: $curlError | Respuesta: $response");
-        return "Lo siento, tuve un problema al procesar la imagen. ¿Puedes describirme qué hay en ella?";
+        return "Uy, no alcancé a ver bien la imagen. ¿Me cuentas qué es?";
     }
 
     $data = json_decode($response, true);
@@ -189,7 +228,7 @@ function analyzeImage($filePath, $userText = "Describe esta imagen", $history = 
     
     if (!$content) {
         logger("ERROR analyzeImage: Respuesta vacía de Groq. Response raw: " . $response);
-        return "Lo siento, no pude interpretar bien la imagen. ¿Me cuentas qué muestra?";
+        return "Uy, no alcancé a ver bien la imagen. ¿Me cuentas qué muestra?";
     }
     
     return $content;

@@ -30,6 +30,7 @@ define('WA_VERIFY_TOKEN', $_ENV['VERIFY_TOKEN'] ?? getenv('VERIFY_TOKEN'));
 define('GROQ_API_KEY', $_ENV['GROQ_API_KEY'] ?? getenv('GROQ_API_KEY') ?: ($_ENV['OPENAI_API_KEY'] ?? getenv('OPENAI_API_KEY')));
 define('GROQ_BASE_URL', $_ENV['GROQ_BASE_URL'] ?? getenv('GROQ_BASE_URL') ?: ($_ENV['OPENAI_BASE_URL'] ?? getenv('OPENAI_BASE_URL')) ?: 'https://api.groq.com/openai/v1');
 define('GROQ_MODEL', $_ENV['GROQ_MODEL'] ?? getenv('GROQ_MODEL') ?: ($_ENV['OPENAI_MODEL'] ?? getenv('OPENAI_MODEL')) ?: 'llama-3.3-70b-versatile');
+define('VISION_MODEL', $_ENV['VISION_MODEL'] ?? getenv('VISION_MODEL') ?: 'qwen/qwen3.6-27b');
 
 function logger($msg) {
     $date = date('Y-m-d H:i:s');

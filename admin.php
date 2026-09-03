@@ -3,6 +3,7 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/knowledge.php';
 require_once __DIR__ . '/whatsapp.php';
 require_once __DIR__ . '/tenants.php';
+require_once __DIR__ . '/orders.php';
 session_start();
 
 // MULTI-TENANT: si hay ?tenant=slug, el panel opera sobre ese cliente.
@@ -14,6 +15,10 @@ if ($tenant) {
 }
 $sessionKey = $tenant ? 'admin_' . $tenant['slug'] : 'admin';
 $isTenantAdmin = $tenant !== null;
+
+// Prefijos para enlaces que conservan el tenant activo (evita logout al navegar)
+$tenantQs = $tenant ? '?tenant=' . urlencode($tenant['slug']) : '';
+$viewQs = $tenant ? '?tenant=' . urlencode($tenant['slug']) . '&' : '?';
 
 // 1. Autenticación Simple
 if (isset($_GET['logout'])) {
@@ -259,7 +264,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_prompt'])) {
         Responde ÚNICAMENTE con el texto del prompt final, sin introducciones ni comentarios.";
         
         $payload = [
-            'model' => 'llama-3.3-70b-versatile',
+            'model' => GROQ_MODEL,
             'messages' => [['role' => 'user', 'content' => $metaPrompt]],
             'temperature' => 0.5
         ];
@@ -348,22 +353,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sync_knowledge'])) {
     $success_msg = "Cerebro sincronizado. Se han creado $chunks fragmentos de conocimiento.";
 }
 
-// 2.3 Lógica de Inventario
+// 2.3 Lógica de Menú
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_inventory'])) {
     $item_name = $_POST['item_name'];
     $description = $_POST['description'] ?? '';
+    $category = $_POST['category'] ?? '';
     $price = $_POST['price'] ?? 0;
-    $stock = $_POST['stock'] ?? 0;
+    $active = isset($_POST['active']) ? 1 : 0;
     
     $pdo = getDB();
     if (!empty($_POST['item_id'])) {
-        $stmt = $pdo->prepare("UPDATE inventory SET item_name=?, description=?, price=?, stock=? WHERE id=?");
-        $stmt->execute([$item_name, $description, $price, $stock, $_POST['item_id']]);
+        $stmt = $pdo->prepare("UPDATE inventory SET item_name=?, description=?, category=?, price=?, active=? WHERE id=?");
+        $stmt->execute([$item_name, $description, $category, $price, $active, $_POST['item_id']]);
         $success_msg = "Producto actualizado.";
     } else {
-        $stmt = $pdo->prepare("INSERT INTO inventory (item_name, description, price, stock) VALUES (?, ?, ?, ?)");
-        $stmt->execute([$item_name, $description, $price, $stock]);
-        $success_msg = "Producto añadido al inventario.";
+        $stmt = $pdo->prepare("INSERT INTO inventory (item_name, description, category, price, active) VALUES (?, ?, ?, ?, ?)");
+        $stmt->execute([$item_name, $description, $category, $price, $active]);
+        $success_msg = "Producto añadido al menú.";
     }
 }
 
@@ -375,7 +381,105 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_inventory'])) 
     $success_msg = "Producto eliminado.";
 }
 
-// 2.4 Lógica de Envío de Respuesta Manual desde Admin
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_inventory_active'])) {
+    $pdo = getDB();
+    $stmt = $pdo->prepare("UPDATE inventory SET active = NOT active WHERE id = ?");
+    $stmt->execute([$_POST['item_id']]);
+    $success_msg = "Estado del producto actualizado.";
+}
+
+// 2.35 Lógica de Pedidos (restaurante)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_payment_methods'])) {
+    $methods = [
+        'pago_movil' => [
+            'banco'     => trim($_POST['pm_banco'] ?? ''),
+            'telefono'  => trim($_POST['pm_telefono'] ?? ''),
+            'documento' => trim($_POST['pm_documento'] ?? ''),
+            'titular'   => trim($_POST['pm_titular'] ?? ''),
+        ],
+        'transferencia' => [
+            'banco'   => trim($_POST['tr_banco'] ?? ''),
+            'cuenta'  => trim($_POST['tr_cuenta'] ?? ''),
+            'titular' => trim($_POST['tr_titular'] ?? ''),
+        ],
+    ];
+    savePaymentMethods(getDB(), $methods);
+    $success_msg = "Métodos de pago actualizados. El sistema los mostrará al cliente al aprobar pedidos.";
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['approve_order'])) {
+    try {
+        $success_msg = approveOrder(getDB(), (int)$_POST['order_id'], $_POST['delivery_cost'] ?? 0, (isset($_POST['order_total']) && trim($_POST['order_total']) !== '') ? $_POST['order_total'] : null);
+    } catch (Exception $e) {
+        $error_msg = "Error al aprobar: " . $e->getMessage();
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_paid'])) {
+    try {
+        $success_msg = confirmOrderPaid(getDB(), (int)$_POST['order_id'], trim($_POST['payment_method']));
+    } catch (Exception $e) {
+        $error_msg = "Error al confirmar pago: " . $e->getMessage();
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reject_payment'])) {
+    try {
+        $success_msg = rejectPayment(getDB(), (int)$_POST['order_id']);
+    } catch (Exception $e) {
+        $error_msg = "Error al rechazar comprobante: " . $e->getMessage();
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_on_way'])) {
+    try {
+        $success_msg = setOrderOnWay(getDB(), (int)$_POST['order_id']);
+    } catch (Exception $e) {
+        $error_msg = "Error al marcar en camino: " . $e->getMessage();
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_delivered'])) {
+    try {
+        $success_msg = setOrderDelivered(getDB(), (int)$_POST['order_id']);
+    } catch (Exception $e) {
+        $error_msg = "Error al marcar entregado: " . $e->getMessage();
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancel_order'])) {
+    try {
+        $success_msg = cancelOrder(getDB(), (int)$_POST['order_id']);
+    } catch (Exception $e) {
+        $error_msg = "Error al cancelar: " . $e->getMessage();
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_order'])) {
+    try {
+        $success_msg = deleteOrder(getDB(), (int)$_POST['order_id']);
+    } catch (Exception $e) {
+        $error_msg = "Error al eliminar: " . $e->getMessage();
+    }
+}
+
+// 2.4 Lógica de Limpieza de Conversación (reset para que el bot atienda como primera vez)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['clear_chat'])) {
+    try {
+        $chatId = trim($_POST['chat_id'] ?? '');
+        if ($chatId === '') throw new Exception("Falta el número del chat.");
+        $pdo = getDB();
+        $del = $pdo->prepare("DELETE FROM messages WHERE wa_id = ?");
+        $del->execute([$chatId]);
+        $delO = $pdo->prepare("DELETE FROM orders WHERE wa_id = ? AND status = 'nuevo'");
+        $delO->execute([$chatId]);
+        $success_msg = "Conversación de $chatId limpiada (" . $del->rowCount() . " mensajes, " . $delO->rowCount() . " pedido(s) nuevo(s) eliminado(s)). El bot la atenderá como primera vez.";
+    } catch (Exception $e) {
+        $error_msg = "Error al limpiar: " . $e->getMessage();
+    }
+}
+
+// 2.5 Lógica de Envío de Respuesta Manual desde Admin
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_reply'])) {
     $chatId = $_POST['chat_id'] ?? '';
     $replyText = trim($_POST['reply_text'] ?? '');
@@ -458,8 +562,16 @@ $prompt_content = $stmt->fetchColumn() ?: @file_get_contents(__DIR__ . '/prompts
 
 // Contar métricas
 $totalMsgs = $pdo->query("SELECT COUNT(*) FROM messages")->fetchColumn();
-$totalLeads = $pdo->query("SELECT COUNT(*) FROM leads")->fetchColumn();
-$qualifiedLeads = $pdo->query("SELECT COUNT(*) FROM leads WHERE qualification_status = 'calificado'")->fetchColumn();
+$totalOrders = 0;
+$pendingOrders = 0;
+try {
+    $totalOrders = (int)$pdo->query("SELECT COUNT(*) FROM orders")->fetchColumn();
+    $pendingOrders = (int)$pdo->query("SELECT COUNT(*) FROM orders WHERE status IN ('nuevo','aprobado','en_verificacion')")->fetchColumn();
+} catch (Exception $e) {}
+$totalNewOrders = 0;
+try {
+    $totalNewOrders = (int)$pdo->query("SELECT COUNT(*) FROM orders WHERE status = 'nuevo'")->fetchColumn();
+} catch (Exception $e) {}
 
 // Listar hilos de conversación
 $threads = $pdo->query("SELECT wa_id, MAX(created_at) as last_msg FROM messages GROUP BY wa_id ORDER BY last_msg DESC LIMIT 50")->fetchAll();
@@ -807,6 +919,11 @@ if (!$tenant && $currentView === 'clientes') {
             color: var(--info);
             border: 1px solid rgba(138, 138, 138, 0.2);
         }
+        .badge-danger {
+            background: rgba(209, 36, 36, 0.1);
+            color: var(--danger);
+            border: 1px solid rgba(209, 36, 36, 0.2);
+        }
 
         .form-group {
             margin-bottom: 20px;
@@ -1077,30 +1194,40 @@ if (!$tenant && $currentView === 'clientes') {
             </a>
             <?php endif; ?>
             <div class="sidebar-section">General</div>
-            <a href="admin.php" class="nav-item <?php echo $currentView === 'dashboard' ? 'active' : ''; ?>">
+            <a href="admin.php<?php echo $tenantQs; ?>" class="nav-item <?php echo $currentView === 'dashboard' ? 'active' : ''; ?>">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
                 Dashboard
             </a>
-            <a href="?view=leads" class="nav-item <?php echo $currentView === 'leads' ? 'active' : ''; ?>">
-                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                Leads
-                <?php if($totalLeads > 0): ?>
-                    <span class="nav-badge"><?php echo $totalLeads; ?></span>
-                <?php endif; ?>
-            </a>
 
             <div class="sidebar-section">Negocio</div>
-            <a href="?view=inventory" class="nav-item <?php echo $currentView === 'inventory' ? 'active' : ''; ?>">
+            <a href="admin.php<?php echo $viewQs; ?>view=inventory" class="nav-item <?php echo $currentView === 'inventory' ? 'active' : ''; ?>">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-                Inventario
+                Menú
             </a>
-            <a href="?view=knowledge" class="nav-item <?php echo $currentView === 'knowledge' ? 'active' : ''; ?>">
+            <a href="admin.php<?php echo $viewQs; ?>view=knowledge" class="nav-item <?php echo $currentView === 'knowledge' ? 'active' : ''; ?>">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
                 Conocimiento
             </a>
+            <a href="admin.php<?php echo $viewQs; ?>view=pedidos" class="nav-item <?php echo $currentView === 'pedidos' ? 'active' : ''; ?>">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                Pedidos
+                <?php if($totalNewOrders > 0): ?>
+                    <span class="nav-badge"><?php echo $totalNewOrders; ?></span>
+                <?php endif; ?>
+            </a>
 
             <div class="sidebar-section">Configuración</div>
-            <a href="?view=config" class="nav-item <?php echo $currentView === 'config' ? 'active' : ''; ?>">
+            <?php if($tenant): ?>
+            <a href="admin.php<?php echo $viewQs; ?>view=channels" class="nav-item <?php echo $currentView === 'channels' ? 'active' : ''; ?>">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                Canales
+            </a>
+            <?php endif; ?>
+            <a href="admin.php<?php echo $viewQs; ?>view=payments" class="nav-item <?php echo $currentView === 'payments' ? 'active' : ''; ?>">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                Métodos de Pago
+            </a>
+            <a href="admin.php<?php echo $viewQs; ?>view=config" class="nav-item <?php echo $currentView === 'config' ? 'active' : ''; ?>">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                 Bot Config
             </a>
@@ -1112,7 +1239,7 @@ if (!$tenant && $currentView === 'clientes') {
             <?php endif; ?>
 
             <div class="sidebar-section">Sistema</div>
-            <a href="?view=logs" class="nav-item <?php echo $currentView === 'logs' ? 'active' : ''; ?>">
+            <a href="admin.php<?php echo $viewQs; ?>view=logs" class="nav-item <?php echo $currentView === 'logs' ? 'active' : ''; ?>">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                 Logs
             </a>
@@ -1122,7 +1249,7 @@ if (!$tenant && $currentView === 'clientes') {
             </a>
         </nav>
         <div class="sidebar-footer">
-            <a href="?logout=1" class="nav-item" style="color: var(--danger);">
+            <a href="admin.php<?php echo $viewQs; ?>logout=1" class="nav-item" style="color: var(--danger);">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                 Cerrar Sesión
             </a>
@@ -1139,12 +1266,12 @@ if (!$tenant && $currentView === 'clientes') {
                     $titles = [
                         'dashboard' => 'Dashboard',
                         'clientes' => 'Clientes',
-                        'leads' => 'Leads & Prospectos',
-                        'inventory' => 'Inventario',
+                        'inventory' => 'Menú',
                         'knowledge' => 'Base de Conocimiento',
                         'config' => 'Configuración del Bot',
                         'api' => 'APIs & Credenciales',
                         'logs' => 'Logs del Sistema',
+                        'pedidos' => 'Pedidos',
                     ];
                     echo $titles[$currentView] ?? 'Dashboard';
                     ?>
@@ -1199,8 +1326,191 @@ if (!$tenant && $currentView === 'clientes') {
                     </form>
                 </div>
 
+            <?php elseif ($currentView === 'channels'): 
+
+                $APP_ID = '884874344543876';
+                $WHATSAPP_CONFIG_ID = '891103050469599';
+                $hasWhatsApp = !empty($tenant['phone_number_id']);
+                $hasInstagram = !empty($tenant['ig_account_id']);
+                ?>
+                <!-- ===== CHANNELS VIEW ===== -->
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h3>Canales de Contacto</h3>
+                            <p class="label">Conecta WhatsApp e Instagram para que el bot atienda en ambos canales</p>
+                        </div>
+                    </div>
+
+                    <!-- WhatsApp -->
+                    <div style="padding:20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <span style="font-size:28px;">📱</span>
+                            <div>
+                                <strong style="color:var(--text);">WhatsApp</strong>
+                                <?php if($hasWhatsApp): ?>
+                                    <br><span style="font-size:12px; color:var(--text-3);">Conectado: <?php echo htmlspecialchars($tenant['phone_number_id']); ?></span>
+                                <?php else: ?>
+                                    <br><span style="font-size:12px; color:var(--text-3);">No conectado</span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <div>
+                            <?php if($hasWhatsApp): ?>
+                                <span class="badge badge-success">Activo</span>
+                            <?php else: ?>
+                                <button type="button" class="btn btn-primary" onclick="connectWhatsApp()">Conectar</button>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <!-- Instagram -->
+                    <div style="padding:20px; display:flex; align-items:center; justify-content:space-between;">
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <span style="font-size:28px;">📸</span>
+                            <div>
+                                <strong style="color:var(--text);">Instagram</strong>
+                                <?php if($hasInstagram): ?>
+                                    <br><span style="font-size:12px; color:var(--text-3);">Conectado: <?php echo htmlspecialchars($tenant['ig_account_id']); ?></span>
+                                <?php else: ?>
+                                    <br><span style="font-size:12px; color:var(--text-3);">No conectado</span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <div>
+                            <?php if($hasInstagram): ?>
+                                <span class="badge badge-success">Activo</span>
+                            <?php else: ?>
+                                <button type="button" class="btn btn-primary" onclick="connectInstagram()">Conectar</button>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Facebook SDK -->
+                <div id="fb-root"></div>
+                <script async defer crossorigin="anonymous" src="https://connect.facebook.net/es_LA/sdk.js#xfbml=1&version=v21.0&autoLogAppEvents=1"></script>
+                <script>
+                window.fbAsyncInit = function() {
+                    FB.init({ appId: '<?php echo $APP_ID; ?>', cookie: true, xfbml: true, version: 'v21.0' });
+                };
+
+                function connectWhatsApp() {
+                    FB.login(function(response) {
+                        if (response.authResponse) {
+                           exchangeCode('whatsapp', response.authResponse.code);
+                        }
+                    }, {
+                        config_id: '<?php echo $WHATSAPP_CONFIG_ID; ?>',
+                        response_type: 'code',
+                        override_default_response_type: true,
+                        extras: { features: 'qr', session_info_version: '3' }
+                    });
+                }
+
+                function connectInstagram() {
+                    FB.login(function(response) {
+                        if (response.authResponse) {
+                           exchangeCode('instagram', response.authResponse.code);
+                        }
+                    }, {
+                        config_id: '<?php echo $WHATSAPP_CONFIG_ID; ?>',
+                        response_type: 'code',
+                        override_default_response_type: true,
+                        extras: { features: 'qr', session_info_version: '3' }
+                    });
+                }
+
+                function exchangeCode(platform, code) {
+                    fetch('meta-exchange.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ code: code, platform: platform, tenant_id: <?php echo $tenant['id']; ?> })
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('¡' + (platform === 'whatsapp' ? 'WhatsApp' : 'Instagram') + ' conectado exitosamente!');
+                            location.reload();
+                        } else {
+                            alert('Error: ' + (data.error || 'No se pudo conectar'));
+                        }
+                    })
+                    .catch(err => alert('Error de conexión: ' + err));
+                }
+                </script>
+
+            <?php elseif ($currentView === 'payments'):
+                $methods = getPaymentMethods($pdo);
+                $pm = $methods['pago_movil'] ?? [];
+                $tr = $methods['transferencia'] ?? [];
+                ?>
+                <!-- ===== PAYMENTS VIEW ===== -->
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h3>Métodos de Pago</h3>
+                            <p class="label">Estos datos se muestran al cliente cuando apruebas un pedido y cuando pida los datos de pago</p>
+                        </div>
+                    </div>
+                    <form method="POST">
+                        <h4 style="color:var(--text); margin-bottom:16px;">📱 Pago Móvil</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Banco</label>
+                                <input type="text" class="form-control" name="pm_banco" value="<?php echo htmlspecialchars($pm['banco'] ?? ''); ?>" placeholder="ej: Banesco">
+                            </div>
+                            <div class="form-group">
+                                <label>Teléfono</label>
+                                <input type="text" class="form-control" name="pm_telefono" value="<?php echo htmlspecialchars($pm['telefono'] ?? ''); ?>" placeholder="ej: 04121234567">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Documento</label>
+                                <input type="text" class="form-control" name="pm_documento" value="<?php echo htmlspecialchars($pm['documento'] ?? ''); ?>" placeholder="ej: V-12345678">
+                            </div>
+                            <div class="form-group">
+                                <label>Titular</label>
+                                <input type="text" class="form-control" name="pm_titular" value="<?php echo htmlspecialchars($pm['titular'] ?? ''); ?>" placeholder="Nombre del titular">
+                            </div>
+                        </div>
+
+                        <hr style="border:0; border-top:1px solid var(--border); margin:24px 0;">
+
+                        <h4 style="color:var(--text); margin-bottom:16px;">🏦 Transferencia Bancaria</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Banco</label>
+                                <input type="text" class="form-control" name="tr_banco" value="<?php echo htmlspecialchars($tr['banco'] ?? ''); ?>" placeholder="ej: Mercantil">
+                            </div>
+                            <div class="form-group">
+                                <label>Número de Cuenta</label>
+                                <input type="text" class="form-control" name="tr_cuenta" value="<?php echo htmlspecialchars($tr['cuenta'] ?? ''); ?>" placeholder="ej: 0104-1234-56-78901234">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Titular</label>
+                            <input type="text" class="form-control" name="tr_titular" value="<?php echo htmlspecialchars($tr['titular'] ?? ''); ?>" placeholder="Nombre del titular">
+                        </div>
+
+                        <div style="margin-top:20px;">
+                            <button type="submit" name="save_payment_methods" class="btn btn-primary">Guardar Métodos de Pago</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="card" style="background:var(--bg);">
+                    <div style="padding:16px 20px;">
+                        <p style="margin:0; font-size:13px; color:var(--text-3);">
+                            <strong>¿Cómo funciona?</strong> Cuando un cliente pida los datos de pago por el chat, el bot le pasará automáticamente esta información. También se incluye al aprobar un pedido.
+                        </p>
+                    </div>
+                </div>
+
             <?php elseif ($currentView === 'knowledge'): 
-                $files = array_diff(scandir(knowledgeDir()), array('.', '..', '.htaccess'));
+                $kd = knowledgeDir();
+                $files = is_dir($kd) ? array_diff(scandir($kd), array('.', '..', '.htaccess')) : [];
                 ?>
                 <!-- ===== KNOWLEDGE VIEW ===== -->
                 <div class="card">
@@ -1261,8 +1571,8 @@ if (!$tenant && $currentView === 'clientes') {
                 <div class="card">
                     <div class="card-header">
                         <div>
-                            <h3>Producto / Servicio</h3>
-                            <p class="label">El bot podrá ofrecer estos productos con precios en tiempo real</p>
+                            <h3>Menú</h3>
+                            <p class="label">El bot ofrecerá estos productos a los clientes. Activa/desactiva lo que quieras mostrar.</p>
                         </div>
                     </div>
                     <form method="POST">
@@ -1270,23 +1580,30 @@ if (!$tenant && $currentView === 'clientes') {
 
                         <div class="form-group">
                             <label>Nombre del producto</label>
-                            <input type="text" class="form-control" name="item_name" id="inv_name" placeholder="Ej: Consulta básica" required>
+                            <input type="text" class="form-control" name="item_name" id="inv_name" placeholder="Ej: Perro caliente especial" required>
                         </div>
 
                         <div class="form-group">
                             <label>Descripción</label>
-                            <textarea class="form-control" name="description" id="inv_desc" rows="2" placeholder="Describe brevemente el producto o servicio"></textarea>
+                            <textarea class="form-control" name="description" id="inv_desc" rows="2" placeholder="Describe brevemente el producto"></textarea>
                         </div>
 
                         <div class="form-row">
                             <div class="form-group">
+                                <label>Categoría</label>
+                                <input type="text" class="form-control" name="category" id="inv_cat" placeholder="Ej: Fuertes, Bebidas, Postres">
+                            </div>
+                            <div class="form-group">
                                 <label>Precio ($)</label>
                                 <input type="number" step="0.01" class="form-control" name="price" id="inv_price" value="0.00">
                             </div>
-                            <div class="form-group">
-                                <label>Stock</label>
-                                <input type="number" class="form-control" name="stock" id="inv_stock" value="0">
-                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                <input type="checkbox" name="active" id="inv_active" checked style="width:18px; height:18px;">
+                                Visible en el menú del bot
+                            </label>
                         </div>
 
                         <div style="display:flex; gap:10px;">
@@ -1304,7 +1621,7 @@ if (!$tenant && $currentView === 'clientes') {
                         <div style="overflow-x:auto;">
                             <table>
                                 <thead>
-                                    <tr><th>Producto</th><th>Precio</th><th>Stock</th><th>Acción</th></tr>
+                                    <tr><th>Producto</th><th>Categoría</th><th>Precio</th><th>Activo</th><th>Acción</th></tr>
                                 </thead>
                                 <tbody>
                                     <?php foreach ($inventory as $i): ?>
@@ -1315,15 +1632,25 @@ if (!$tenant && $currentView === 'clientes') {
                                                 <br><span style="font-size:12px; color:var(--text-3);"><?php echo htmlspecialchars($i['description']); ?></span>
                                             <?php endif; ?>
                                         </td>
+                                        <td>
+                                            <?php if($i['category']): ?>
+                                                <span class="badge badge-info"><?php echo htmlspecialchars($i['category']); ?></span>
+                                            <?php else: ?>
+                                                <span style="color:var(--text-3);">—</span>
+                                            <?php endif; ?>
+                                        </td>
                                         <td style="font-weight:600; color:var(--accent);">$<?php echo number_format($i['price'], 2); ?></td>
                                         <td>
-                                            <span class="badge <?php echo $i['stock'] > 0 ? 'badge-success' : 'badge-warning'; ?>">
-                                                <?php echo $i['stock']; ?> uds
-                                            </span>
+                                            <form method="POST" style="display:inline;">
+                                                <input type="hidden" name="item_id" value="<?php echo $i['id']; ?>">
+                                                <button type="submit" name="toggle_inventory_active" class="badge <?php echo $i['active'] ? 'badge-success' : 'badge-warning'; ?>" style="border:none; cursor:pointer;">
+                                                    <?php echo $i['active'] ? 'Activo' : 'Inactivo'; ?>
+                                                </button>
+                                            </form>
                                         </td>
                                         <td>
                                             <div style="display:flex; gap:6px;">
-                                                <button type="button" class="btn btn-secondary btn-sm" onclick="editInventory(<?php echo $i['id']; ?>, '<?php echo addslashes(htmlspecialchars($i['item_name'])); ?>', '<?php echo addslashes(htmlspecialchars($i['description'])); ?>', '<?php echo $i['price']; ?>', '<?php echo $i['stock']; ?>')">Editar</button>
+                                                <button type="button" class="btn btn-secondary btn-sm" onclick="editInventory(<?php echo $i['id']; ?>, '<?php echo addslashes(htmlspecialchars($i['item_name'])); ?>', '<?php echo addslashes(htmlspecialchars($i['description'])); ?>', '<?php echo addslashes(htmlspecialchars($i['category'])); ?>', '<?php echo $i['price']; ?>', '<?php echo $i['active']; ?>')">Editar</button>
                                                 <form method="POST" style="display:inline;" onsubmit="return confirm('¿Eliminar este producto?');">
                                                     <input type="hidden" name="item_id" value="<?php echo $i['id']; ?>">
                                                     <button type="submit" name="delete_inventory" class="btn btn-danger btn-sm">Eliminar</button>
@@ -1337,8 +1664,8 @@ if (!$tenant && $currentView === 'clientes') {
                         </div>
                     <?php else: ?>
                         <div class="empty-state">
-                            <div class="icon">📦</div>
-                            <h4>Inventario vacío</h4>
+                            <div class="icon">🍽️</div>
+                            <h4>Menú vacío</h4>
                             <p>Agrega productos para que el bot pueda ofrecerlos a los clientes</p>
                         </div>
                     <?php endif; ?>
@@ -1365,7 +1692,7 @@ if (!$tenant && $currentView === 'clientes') {
                             <h3>Últimos 50 eventos</h3>
                             <p class="label">Historial de depuración (Meta, Groq y errores del sistema)</p>
                         </div>
-                        <a href="?view=logs" class="btn btn-secondary btn-sm">⟳ Refrescar</a>
+                        <a href="admin.php<?php echo $viewQs; ?>view=logs" class="btn btn-secondary btn-sm">⟳ Refrescar</a>
                     </div>
                     <div class="log-viewer">
                         <?php foreach ($lastLogs as $line): 
@@ -1381,58 +1708,6 @@ if (!$tenant && $currentView === 'clientes') {
                         <?php if (empty($lastLogs)): ?>
                             <div style="color:var(--text-4); text-align:center; padding:40px;">No hay logs disponibles</div>
                         <?php endif; ?>
-                    </div>
-                </div>
-
-            <?php elseif ($currentView === 'leads'): 
-                $allLeads = $pdo->query("SELECT * FROM leads ORDER BY created_at DESC")->fetchAll();
-                ?>
-                <!-- ===== LEADS VIEW ===== -->
-                <div class="card">
-                    <div class="card-header">
-                        <div>
-                            <h3>Prospectos Detectados</h3>
-                            <p class="label">Usuarios calificados automáticamente por la IA</p>
-                        </div>
-                        <span class="badge badge-info"><?php echo count($allLeads); ?> leads</span>
-                    </div>
-                    <div style="overflow-x:auto;">
-                        <table>
-                            <thead>
-                                <tr><th>WhatsApp</th><th>Contacto</th><th>Resumen</th><th>Solicitud</th><th>Estado</th></tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($allLeads as $l): ?>
-                                <tr>
-                                    <td style="font-family:monospace; font-size:13px;"><?php echo $l['wa_id']; ?></td>
-                                    <td>
-                                        <strong style="color:var(--text);"><?php echo htmlspecialchars($l['nombre'] ?: 'Sin nombre'); ?></strong>
-                                        <?php if($l['negocio']): ?>
-                                            <br><span style="font-size:12px; color:var(--text-3);"><?php echo htmlspecialchars($l['negocio']); ?></span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td style="font-size:13px; max-width:200px;"><?php echo htmlspecialchars($l['resumen'] ?: 'N/A'); ?></td>
-                                    <td style="font-size:13px; max-width:200px; color:var(--accent);">
-                                        <strong><?php echo htmlspecialchars($l['solicitud'] ?: 'N/A'); ?></strong>
-                                    </td>
-                                    <td>
-                                        <span class="badge <?php echo $l['qualification_status'] === 'calificado' ? 'badge-success' : 'badge-warning'; ?>">
-                                            <?php echo strtoupper($l['qualification_status']); ?>
-                                        </span>
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
-                                <?php if (empty($allLeads)): ?>
-                                    <tr><td colspan="5">
-                                        <div class="empty-state" style="padding:32px;">
-                                            <div class="icon">👥</div>
-                                            <h4>No hay leads aún</h4>
-                                            <p>Cuando la IA califique prospectos, aparecerán aquí</p>
-                                        </div>
-                                    </td></tr>
-                                <?php endif; ?>
-                            </tbody>
-                        </table>
                     </div>
                 </div>
 
@@ -1595,20 +1870,294 @@ if (!$tenant && $currentView === 'clientes') {
                     </form>
                 </div>
 
+            <?php elseif ($currentView === 'pedidos'): 
+                $orders = $pdo->query("SELECT * FROM orders ORDER BY FIELD(status,'nuevo','en_verificacion','aprobado','pagado','en_camino','entregado','cancelado'), id DESC")->fetchAll();
+                ?>
+                <!-- ===== PEDIDOS VIEW ===== -->
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h3>Pedidos de Delivery</h3>
+                            <p class="label">Revisa, aprueba y confirma los pedidos que llegan por el chat</p>
+                        </div>
+                        <span class="badge badge-info"><?php echo count($orders); ?> pedidos</span>
+                    </div>
+                    <?php if (!empty($orders)): ?>
+                        <div style="overflow-x:auto;">
+                            <table>
+                                <thead>
+                                    <tr><th>N°</th><th>Cliente</th><th>Detalle</th><th>Dirección</th><th>Total</th><th>Estado</th><th>Acciones</th></tr>
+                                </thead>
+                                <tbody id="orders-tbody">
+                                    <?php foreach ($orders as $o): 
+                                        $itemsLines = orderItemsLines($o);
+                                        $badgeClass = match($o['status']) {
+                                            'pagado', 'entregado' => 'badge-success',
+                                            'nuevo', 'en_verificacion' => 'badge-warning',
+                                            'en_camino' => 'badge-info',
+                                            'cancelado' => 'badge-danger',
+                                            default => 'badge-info',
+                                        };
+                                        $pmPreset = 'Pago Móvil';
+                                        $pa = !empty($o['payment_analysis']) ? json_decode($o['payment_analysis'], true) : null;
+                                        if (is_array($pa)) {
+                                            if (($pa['type'] ?? '') === 'transferencia') $pmPreset = 'Transferencia';
+                                            if (($pa['type'] ?? '') === 'efectivo') $pmPreset = 'Efectivo';
+                                        }
+                                    ?>
+                                    <tr>
+                                        <td style="font-family:monospace; font-size:13px; font-weight:600; color:var(--accent);"><?php echo htmlspecialchars($o['order_number']); ?></td>
+                                        <td style="font-family:monospace; font-size:13px;">
+                                            <?php echo htmlspecialchars($o['wa_id']); ?>
+                                            <?php if(!empty($o['contact_phone']) && $o['contact_phone'] !== $o['wa_id']): ?>
+                                                <br><span style="font-size:11px; color:var(--text-3);">📞 <?php echo htmlspecialchars($o['contact_phone']); ?></span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td style="font-size:13px; max-width:220px;">
+                                            <?php foreach ($itemsLines as $line): ?>
+                                                <div><?php echo htmlspecialchars($line); ?></div>
+                                            <?php endforeach; ?>
+                                            <?php if($o['delivery_zone']): ?><span style="font-size:11px; color:var(--text-3);">Zona: <?php echo htmlspecialchars($o['delivery_zone']); ?></span><?php endif; ?>
+                                            <?php if($o['payment_method']): ?><br><span style="font-size:11px; color:var(--success);">Pago: <?php echo htmlspecialchars($o['payment_method']); ?></span><?php endif; ?>
+                                            <?php if(!empty($o['payment_image'])): ?>
+                                                <div style="margin-top:8px; border:1px solid var(--border); border-radius:8px; padding:6px; background:var(--surface-3); display:inline-block;">
+                                                    <img src="<?php echo htmlspecialchars($o['payment_image']); ?>" alt="Comprobante" title="Ver comprobante" style="max-width:140px; max-height:110px; border-radius:6px; cursor:pointer; display:block;" onclick="openImage(this.src)">
+                                                    <?php if(is_array($pa)): ?>
+                                                        <div style="font-size:11px; margin-top:4px;">
+                                                            <?php if(!empty($pa['is_payment'])): ?>
+                                                                <span class="badge badge-success">Pago analizado</span>
+                                                                <?php if(!empty($pa['bank'])): ?><div style="color:var(--text);">🏦 <?php echo htmlspecialchars($pa['bank']); ?></div><?php endif; ?>
+                                                                <?php if(!empty($pa['amount'])): ?><div style="color:var(--accent); font-weight:600;">💰 <?php echo htmlspecialchars($pa['amount']); ?></div><?php endif; ?>
+                                                                <?php if(!empty($pa['reference'])): ?><div style="color:var(--text-3);">REF: <?php echo htmlspecialchars($pa['reference']); ?></div><?php endif; ?>
+                                                            <?php else: ?>
+                                                                <span class="badge badge-danger">⚠️ No parece pago</span>
+                                                                <?php if(!empty($pa['reason'])): ?><div style="color:var(--text-3);"><?php echo htmlspecialchars($pa['reason']); ?></div><?php endif; ?>
+                                                            <?php endif; ?>
+                                                            <?php if(!empty($pa['summary'])): ?><div style="color:var(--text-3);"><?php echo htmlspecialchars($pa['summary']); ?></div><?php endif; ?>
+                                                        </div>
+                                                    <?php endif; ?>
+                                                </div>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td style="font-size:13px; max-width:180px;"><?php echo htmlspecialchars($o['delivery_address'] ?: '—'); ?></td>
+                                        <td style="font-weight:600; color:var(--accent);"><?php echo $o['total'] > 0 ? '$' . number_format($o['total'], 2, ',', '.') : '—'; ?></td>
+                                        <td><span class="badge <?php echo $badgeClass; ?>"><?php echo getOrderStatusLabel($o['status']); ?></span></td>
+                                        <td>
+                                            <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+                                                <a href="admin.php<?php echo $viewQs; ?>chat=<?php echo $o['wa_id']; ?>" class="btn btn-secondary btn-sm">Chat</a>
+                                                <button type="button" class="btn btn-secondary btn-sm" onclick="showOrderDetail(<?php echo (int)$o['id']; ?>)">Detalle</button>
+                                                <?php if($o['status'] === 'nuevo'): ?>
+                                                    <?php
+                                                        $oIncomplete = empty(trim($o['delivery_address'] ?? '')) || empty(trim($o['contact_phone'] ?? ''));
+                                                        $oMissing = [];
+                                                        if (empty(trim($o['delivery_address'] ?? ''))) $oMissing[] = 'dirección';
+                                                        if (empty(trim($o['contact_phone'] ?? ''))) $oMissing[] = 'número de contacto';
+                                                    ?>
+                                                    <?php if(!$oIncomplete): ?>
+                                                        <?php
+                                                            $oSubtotal = computeOrderSubtotal($pdo, $o);
+                                                            $oCanAuto = ($oSubtotal !== null);
+                                                        ?>
+                                                        <form method="POST" style="display:inline-flex; gap:4px; align-items:center;" onsubmit="return confirm('¿Aprobar el pedido <?php echo htmlspecialchars($o['order_number']); ?> y enviar el total al cliente?');">
+                                                            <input type="hidden" name="order_id" value="<?php echo $o['id']; ?>">
+                                                            <input type="number" step="0.01" min="0" name="delivery_cost" placeholder="Delivery $" <?php echo $oCanAuto ? 'required' : ''; ?> title="Costo del delivery" style="width:90px; padding:6px 8px; border-radius:8px; background:var(--surface-3); border:1px solid var(--border); color:var(--text); font-size:12px; font-family:'Inter',sans-serif;">
+                                                            <?php if($oCanAuto): ?>
+                                                                <span style="font-size:12px; color:var(--text-3); white-space:nowrap;" id="totPrev_<?php echo (int)$o['id']; ?>" data-subtotal="<?php echo $oSubtotal; ?>">Total: $<?php echo number_format($oSubtotal, 2, ',', '.'); ?> + delivery</span>
+                                                            <?php else: ?>
+                                                                <input type="number" step="0.01" min="0.01" name="order_total" placeholder="Total $" required title="No se pudo calcular: ingresa el total manual" style="width:90px; padding:6px 8px; border-radius:8px; background:var(--surface-3); border:1px solid var(--border); color:var(--text); font-size:12px; font-family:'Inter',sans-serif;">
+                                                            <?php endif; ?>
+                                                            <button type="submit" name="approve_order" class="btn btn-primary btn-sm">Aprobar</button>
+                                                        </form>
+                                                    <?php else: ?>
+                                                        <span class="badge badge-warning" title="Falta <?php echo implode(' y ', $oMissing); ?>">Falta <?php echo implode(' y ', $oMissing); ?></span>
+                                                    <?php endif; ?>
+                                                <?php endif; ?>
+                                                <?php if(in_array($o['status'], ['aprobado','en_verificacion'])): ?>
+                                                    <form method="POST" style="display:inline-flex; gap:4px; align-items:center;" onsubmit="return confirm('¿Confirmar el pago del pedido <?php echo htmlspecialchars($o['order_number']); ?>?');">
+                                                        <input type="hidden" name="order_id" value="<?php echo $o['id']; ?>">
+                                                        <select name="payment_method" required style="padding:6px 8px; border-radius:8px; background:var(--surface-3); border:1px solid var(--border); color:var(--text); font-size:12px; font-family:'Inter',sans-serif;">
+                                                            <option value="Pago Móvil" <?php echo $pmPreset === 'Pago Móvil' ? 'selected' : ''; ?>>Pago Móvil</option>
+                                                            <option value="Transferencia" <?php echo $pmPreset === 'Transferencia' ? 'selected' : ''; ?>>Transferencia</option>
+                                                            <option value="Efectivo" <?php echo $pmPreset === 'Efectivo' ? 'selected' : ''; ?>>Efectivo</option>
+                                                        </select>
+                                                        <button type="submit" name="confirm_paid" class="btn btn-primary btn-sm">Confirmar Pago</button>
+                                                    </form>
+                                                    <?php if($o['status'] === 'en_verificacion' && !empty($o['payment_image'])): ?>
+                                                        <form method="POST" style="display:inline;" onsubmit="return confirm('¿Rechazar el comprobante del pedido <?php echo htmlspecialchars($o['order_number']); ?>? El pedido volverá a aprobado y se notificará al cliente.');">
+                                                            <input type="hidden" name="order_id" value="<?php echo $o['id']; ?>">
+                                                            <button type="submit" name="reject_payment" class="btn btn-danger btn-sm">Rechazar Comprobante</button>
+                                                        </form>
+                                                    <?php endif; ?>
+                                                <?php endif; ?>
+                                                <?php if($o['status'] === 'pagado'): ?>
+                                                    <form method="POST" style="display:inline;" onsubmit="return confirm('¿Marcar el pedido <?php echo htmlspecialchars($o['order_number']); ?> como en camino y notificar al cliente?');">
+                                                        <input type="hidden" name="order_id" value="<?php echo $o['id']; ?>">
+                                                        <button type="submit" name="mark_on_way" class="btn btn-primary btn-sm">En Camino</button>
+                                                    </form>
+                                                <?php endif; ?>
+                                                <?php if($o['status'] === 'en_camino'): ?>
+                                                    <form method="POST" style="display:inline;" onsubmit="return confirm('¿Marcar el pedido <?php echo htmlspecialchars($o['order_number']); ?> como entregado y notificar al cliente?');">
+                                                        <input type="hidden" name="order_id" value="<?php echo $o['id']; ?>">
+                                                        <button type="submit" name="mark_delivered" class="btn btn-secondary btn-sm">Entregado</button>
+                                                    </form>
+                                                <?php endif; ?>
+                                                <?php if(!in_array($o['status'], ['entregado','cancelado'])): ?>
+                                                    <form method="POST" style="display:inline;" onsubmit="return confirm('¿Cancelar el pedido <?php echo htmlspecialchars($o['order_number']); ?>? Se notificará al cliente.');">
+                                                        <input type="hidden" name="order_id" value="<?php echo $o['id']; ?>">
+                                                        <button type="submit" name="cancel_order" class="btn btn-danger btn-sm">Cancelar</button>
+                                                    </form>
+                                                <?php endif; ?>
+                                                <form method="POST" style="display:inline;" onsubmit="return confirm('¿Eliminar permanentemente el pedido <?php echo htmlspecialchars($o['order_number']); ?>? Esta acción no se puede deshacer.');">
+                                                    <input type="hidden" name="order_id" value="<?php echo $o['id']; ?>">
+                                                    <button type="submit" name="delete_order" class="btn btn-danger btn-sm" style="background:var(--surface-3); color:var(--danger,#e74c3c); border-color:var(--danger,#e74c3c);">Eliminar</button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    <?php else: ?>
+                        <div class="empty-state">
+                            <div class="icon">🛵</div>
+                            <h4>No hay pedidos aún</h4>
+                            <p>Cuando un cliente pida por el chat, el pedido aparecerá aquí para que lo apruebes</p>
+                        </div>
+                    <?php endif; ?>
+                </div>
+
+                <!-- ===== MODAL DETALLE DE PEDIDO ===== -->
+                <style>
+                    .modal-overlay{position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:1000; display:none; align-items:center; justify-content:center; padding:20px;}
+                    .modal-overlay.open{display:flex;}
+                    .modal-box{background:var(--surface); border:1px solid var(--border); border-radius:14px; max-width:580px; width:100%; max-height:90vh; overflow:auto; box-shadow:0 20px 50px rgba(0,0,0,.35);}
+                    .modal-header{display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--surface);}
+                    .modal-header h3{margin:0; font-size:16px;}
+                    .modal-close{background:var(--surface-3); border:1px solid var(--border); color:var(--text); width:32px; height:32px; border-radius:8px; cursor:pointer; font-size:16px; line-height:1;}
+                    .modal-body{padding:20px;}
+                    .om-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px 16px; margin-bottom:14px;}
+                    .om-field{font-size:13px;}
+                    .om-field .k{color:var(--text-3); font-size:11px; display:block; margin-bottom:2px;}
+                    .om-field .v{font-weight:600; word-break:break-word;}
+                    .om-section{font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--text-3); border-bottom:1px solid var(--border); padding-bottom:6px; margin:18px 0 10px;}
+                    .om-comprobante{border:1px solid var(--border); border-radius:10px; padding:10px; background:var(--surface-3);}
+                    .om-comprobante img{max-width:100%; max-height:300px; border-radius:8px; cursor:pointer; display:block; margin-bottom:8px;}
+                </style>
+                <div class="modal-overlay" id="orderModal" onclick="if(event.target===this)closeOrderModal()">
+                    <div class="modal-box">
+                        <div class="modal-header">
+                            <h3 id="omTitle">Detalle</h3>
+                            <button type="button" class="modal-close" onclick="closeOrderModal()">✕</button>
+                        </div>
+                        <div class="modal-body" id="omBody"></div>
+                    </div>
+                </div>
+                <script>
+                    var orderData = <?php
+                        $orderJson = [];
+                        foreach ($orders as $o) {
+                            $pa = !empty($o['payment_analysis']) ? json_decode($o['payment_analysis'], true) : null;
+                            $badgeClass = match($o['status']) {
+                                'pagado', 'entregado' => 'badge-success',
+                                'nuevo', 'en_verificacion' => 'badge-warning',
+                                'en_camino' => 'badge-info',
+                                'cancelado' => 'badge-danger',
+                                default => 'badge-info',
+                            };
+                            $orderJson[] = [
+                                'id' => (int)$o['id'],
+                                'order_number' => $o['order_number'],
+                                'status_label' => getOrderStatusLabel($o['status']),
+                                'badge_class' => $badgeClass,
+                                'created_at' => $o['created_at'],
+                                'wa_id' => $o['wa_id'],
+                                'contact_phone' => $o['contact_phone'] ?: $o['wa_id'],
+                                'items' => orderItemsLines($o),
+                                'type' => $o['type'],
+                                'address' => $o['delivery_address'],
+                                'zone' => $o['delivery_zone'],
+                                'total' => $o['total'] > 0 ? '$' . number_format($o['total'], 2, ',', '.') : '—',
+                                'delivery_cost' => ($o['delivery_cost'] ?? 0) > 0 ? '$' . number_format((float)$o['delivery_cost'], 2, ',', '.') : '—',
+                                'payment_method' => $o['payment_method'],
+                                'payment_ref' => $o['payment_ref'],
+                                'payment_image' => $o['payment_image'],
+                                'analysis' => is_array($pa) ? $pa : null,
+                                'admin_note' => $o['admin_note'] ?? '',
+                            ];
+                        }
+                        echo json_encode($orderJson, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                    ?>;
+                    function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+                    function showOrderDetail(id){
+                        var o = null;
+                        for (var i = 0; i < orderData.length; i++) { if (orderData[i].id === id) { o = orderData[i]; break; } }
+                        if (!o) return;
+                        var items = (o.items || []).map(function(it){ return '<div>' + esc(it) + '</div>'; }).join('');
+                        var h = '';
+                        h += '<div style="margin-bottom:14px;"><span class="badge ' + esc(o.badge_class) + '">' + esc(o.status_label) + '</span> <span style="color:var(--text-3); font-size:12px;">' + esc(o.created_at) + '</span></div>';
+                        h += '<div class="om-section">Cliente</div>';
+                        h += '<div class="om-grid">';
+                        h += '<div class="om-field"><span class="k">WhatsApp</span><span class="v">' + esc(o.wa_id) + '</span></div>';
+                        h += '<div class="om-field"><span class="k">Teléfono contacto</span><span class="v">' + esc(o.contact_phone) + '</span></div>';
+                        h += '</div>';
+                        h += '<div class="om-section">Pedido</div>';
+                        h += '<div class="om-grid">';
+                        h += '<div class="om-field"><span class="k">Tipo</span><span class="v">' + esc(o.type) + '</span></div>';
+                        h += '<div class="om-field"><span class="k">Delivery</span><span class="v">' + esc(o.delivery_cost || '—') + '</span></div>';
+                        h += '<div class="om-field"><span class="k">Total</span><span class="v" style="color:var(--accent);">' + esc(o.total) + '</span></div>';
+                        h += '</div>';
+                        if (o.admin_note) h += '<div style="font-size:12px; color:var(--text-3); margin-bottom:12px;">Nota: ' + esc(o.admin_note) + '</div>';
+                        h += '<div style="font-size:13px; margin-bottom:12px;">' + items + '</div>';
+                        h += '<div class="om-grid">';
+                        h += '<div class="om-field" style="grid-column:1/-1;"><span class="k">Dirección</span><span class="v">' + esc(o.address || '—') + '</span></div>';
+                        h += '<div class="om-field"><span class="k">Zona</span><span class="v">' + esc(o.zone || '—') + '</span></div>';
+                        h += '<div class="om-field"><span class="k">Método de pago</span><span class="v">' + esc(o.payment_method || '—') + '</span></div>';
+                        if (o.payment_ref) h += '<div class="om-field"><span class="k">Referencia</span><span class="v">' + esc(o.payment_ref) + '</span></div>';
+                        h += '</div>';
+                        h += '<div class="om-section">Comprobante de Pago</div>';
+                        if (o.payment_image) {
+                            h += '<div class="om-comprobante">';
+                            h += '<img src="' + esc(o.payment_image) + '" alt="Comprobante" onclick="openImage(this.src)">';
+                            if (o.analysis) {
+                                var a = o.analysis;
+                                h += (a.is_payment ? '<span class="badge badge-success">Pago analizado</span>' : '<span class="badge badge-danger">⚠️ No parece pago</span>');
+                                if (a.type) h += '<div style="font-size:12px; margin-top:6px; color:var(--text-3);">Tipo: ' + esc(a.type) + '</div>';
+                                if (a.bank) h += '<div style="font-size:13px; margin-top:4px;">🏦 ' + esc(a.bank) + '</div>';
+                                if (a.amount) h += '<div style="font-size:14px; font-weight:600; color:var(--accent);">💰 ' + esc(a.amount) + '</div>';
+                                if (a.reference) h += '<div style="font-size:12px; color:var(--text-3);">REF: ' + esc(a.reference) + '</div>';
+                                if (a.date) h += '<div style="font-size:12px; color:var(--text-3);">Fecha: ' + esc(a.date) + '</div>';
+                                if (a.summary) h += '<div style="font-size:12px; margin-top:6px; color:var(--text-3);">' + esc(a.summary) + '</div>';
+                                if (!a.is_payment && a.reason) h += '<div style="font-size:12px; margin-top:4px; color:var(--danger, #e74c3c);">' + esc(a.reason) + '</div>';
+                            } else {
+                                h += '<div style="font-size:12px; color:var(--text-3); margin-top:6px;">Sin análisis de la IA.</div>';
+                            }
+                            h += '</div>';
+                        } else {
+                            h += '<div style="font-size:13px; color:var(--text-3);">Sin comprobante adjunto.</div>';
+                        }
+                        document.getElementById('omTitle').textContent = 'Pedido ' + o.order_number;
+                        document.getElementById('omBody').innerHTML = h;
+                        document.getElementById('orderModal').classList.add('open');
+                    }
+                    function closeOrderModal(){ document.getElementById('orderModal').classList.remove('open'); }
+                    document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeOrderModal(); });
+                </script>
+
             <?php else: ?>
                 <!-- ===== DASHBOARD VIEW ===== -->
-                <div class="kpi-grid">
+                <div class="kpi-grid" id="kpi-grid">
                     <div class="kpi-card">
                         <div class="kpi-label">Mensajes Procesados</div>
-                        <div class="kpi-value"><?php echo $totalMsgs; ?></div>
+                        <div class="kpi-value" id="kpi-msgs"><?php echo $totalMsgs; ?></div>
                     </div>
                     <div class="kpi-card">
-                        <div class="kpi-label">Leads Totales</div>
-                        <div class="kpi-value"><?php echo $totalLeads; ?></div>
+                        <div class="kpi-label">Pedidos</div>
+                        <div class="kpi-value" id="kpi-orders"><?php echo $totalOrders; ?></div>
                     </div>
                     <div class="kpi-card">
-                        <div class="kpi-label">Calificados</div>
-                        <div class="kpi-value accent"><?php echo $qualifiedLeads; ?></div>
+                        <div class="kpi-label">Pendientes</div>
+                        <div class="kpi-value accent" id="kpi-pending"><?php echo $pendingOrders; ?></div>
                     </div>
                 </div>
 
@@ -1644,14 +2193,14 @@ if (!$tenant && $currentView === 'clientes') {
                                 <thead>
                                     <tr><th>WA ID</th><th>Última Actividad</th><th>Acción</th></tr>
                                 </thead>
-                                <tbody>
+                                <tbody id="threads-tbody">
                                     <?php foreach ($threads as $t): ?>
                                     <tr>
                                         <td style="font-family:monospace; font-size:13px;"><?php echo $t['wa_id']; ?></td>
                                         <td style="color:var(--text-3);"><?php echo $t['last_msg']; ?></td>
                                         <td>
                                             <div style="display:flex; gap:6px;">
-                                                <a href="?chat=<?php echo $t['wa_id']; ?>" class="btn btn-secondary btn-sm">Ver Chat</a>
+                                                <a href="admin.php<?php echo $viewQs; ?>chat=<?php echo $t['wa_id']; ?>" class="btn btn-secondary btn-sm">Ver Chat</a>
                                                 <form method="POST" style="display:inline;" onsubmit="return confirm('¿Eliminar toda la conversación con <?php echo addslashes($t['wa_id']); ?>?');">
                                                     <input type="hidden" name="chat_id" value="<?php echo $t['wa_id']; ?>">
                                                     <button type="submit" name="delete_chat" class="btn btn-danger btn-sm">Eliminar</button>
@@ -1672,6 +2221,8 @@ if (!$tenant && $currentView === 'clientes') {
                     <?php endif; ?>
                 </div>
 
+                
+
                 <?php if (isset($_GET['chat'])): 
                     $chatId = $_GET['chat'];
                     $messages = $pdo->prepare("SELECT * FROM messages WHERE wa_id = ? ORDER BY created_at ASC LIMIT 50");
@@ -1683,7 +2234,13 @@ if (!$tenant && $currentView === 'clientes') {
                                 <h3>Chat: <span style="font-family:monospace; color:var(--accent);"><?php echo htmlspecialchars($chatId); ?></span></h3>
                                 <p class="label">Historial de conversación</p>
                             </div>
-                            <a href="admin.php<?php echo $tenantSlug ? '?tenant=' . urlencode($tenantSlug) : ''; ?>" class="btn btn-secondary btn-sm">← Volver</a>
+                            <div style="display:flex; gap:8px; align-items:center;">
+                                <form method="POST" onsubmit="return confirm('¿Limpiar toda la conversación de este número? El bot la atenderá como si fuera la primera vez. Se eliminan mensajes y pedidos nuevos pendientes.');">
+                                    <input type="hidden" name="chat_id" value="<?php echo htmlspecialchars($chatId); ?>">
+                                    <button type="submit" name="clear_chat" class="btn btn-danger btn-sm">Limpiar conversación</button>
+                                </form>
+                                <a href="admin.php<?php echo $tenantSlug ? '?tenant=' . urlencode($tenantSlug) : ''; ?>" class="btn btn-secondary btn-sm">← Volver</a>
+                            </div>
                         </div>
                         <div class="chat-container" id="chatContainer">
                             <?php foreach ($messages as $m): 
@@ -1691,6 +2248,9 @@ if (!$tenant && $currentView === 'clientes') {
                             ?>
                                 <div class="chat-msg <?php echo $m['role']; ?>">
                                     <div class="chat-bubble <?php echo $isMedia ? 'media' : ''; ?>">
+                                        <?php if (!empty($m['image_data'])): ?>
+                                            <img src="<?php echo htmlspecialchars($m['image_data']); ?>" alt="Imagen del cliente" title="Ver imagen" style="max-width:240px; max-height:240px; border-radius:10px; display:block; cursor:pointer; margin-bottom:6px;" onclick="openImage(this.src)">
+                                        <?php endif; ?>
                                         <?php if ($isMedia): ?>
                                             <span style="opacity:0.6; font-size:11px; display:block; margin-bottom:4px;">📎 Multimedia</span>
                                         <?php endif; ?>
@@ -1721,26 +2281,49 @@ if (!$tenant && $currentView === 'clientes') {
         </div>
     </div>
 
+    <style>
+        .lightbox-overlay{position:fixed; inset:0; background:rgba(0,0,0,.85); z-index:2000; display:none; align-items:center; justify-content:center; padding:20px;}
+        .lightbox-overlay.open{display:flex;}
+    </style>
+    <div class="lightbox-overlay" id="imageLightbox" onclick="if(event.target===this)closeLightbox()">
+        <img id="lightboxImg" alt="Imagen" style="max-width:92vw; max-height:92vh; border-radius:10px; box-shadow:0 10px 40px rgba(0,0,0,.6);">
+        <button type="button" class="modal-close" style="position:fixed; top:16px; right:16px;" onclick="closeLightbox()">✕</button>
+    </div>
+
     <script>
         function toggleSidebar() {
             document.getElementById('sidebar').classList.toggle('open');
             document.getElementById('sidebarOverlay').classList.toggle('open');
         }
 
+        function openImage(src) {
+            document.getElementById('lightboxImg').src = src;
+            document.getElementById('imageLightbox').classList.add('open');
+        }
+        function closeLightbox() {
+            document.getElementById('imageLightbox').classList.remove('open');
+            document.getElementById('lightboxImg').src = '';
+        }
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeLightbox();
+        });
+
         function clearInventoryForm() {
             document.getElementById('inv_id').value = '';
             document.getElementById('inv_name').value = '';
             document.getElementById('inv_desc').value = '';
+            document.getElementById('inv_cat').value = '';
             document.getElementById('inv_price').value = '0.00';
-            document.getElementById('inv_stock').value = '0';
+            document.getElementById('inv_active').checked = true;
         }
 
-        function editInventory(id, name, desc, price, stock) {
+        function editInventory(id, name, desc, cat, price, active) {
             document.getElementById('inv_id').value = id;
             document.getElementById('inv_name').value = name;
             document.getElementById('inv_desc').value = desc;
+            document.getElementById('inv_cat').value = cat;
             document.getElementById('inv_price').value = price;
-            document.getElementById('inv_stock').value = stock;
+            document.getElementById('inv_active').checked = (active === '1');
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
@@ -1752,6 +2335,130 @@ if (!$tenant && $currentView === 'clientes') {
                 }
             });
         });
+
+        // Preview del total al escribir el delivery
+        document.querySelectorAll('input[name=delivery_cost]').forEach(function(inp) {
+            inp.addEventListener('input', function() {
+                var prev = document.getElementById('totPrev_' + inp.closest('form').querySelector('input[name=order_id]').value);
+                if (!prev) return;
+                var sub = parseFloat(prev.getAttribute('data-subtotal')) || 0;
+                var d = parseFloat(inp.value) || 0;
+                prev.textContent = 'Total: $' + (sub + d).toFixed(2).replace('.', ',');
+            });
+        });
+
+        // ===== REAL-TIME POLLING =====
+        function startPolling(section, interval, callback) {
+            var since = 0;
+            var busy = false;
+            function poll() {
+                if (busy) return;
+                busy = true;
+                fetch('api_data.php?section=' + section + '&since=' + since)
+                    .then(function(res) {
+                        busy = false;
+                        if (res.status === 304) return null;
+                        if (!res.ok) return null;
+                        return res.json();
+                    })
+                    .then(function(data) {
+                        if (data && data.ts) {
+                            since = data.ts;
+                            callback(data);
+                        }
+                    })
+                    .catch(function() { busy = false; });
+            }
+            poll();
+            setInterval(poll, interval);
+        }
+
+        function escapeHtml(s) {
+            var d = document.createElement('div');
+            d.appendChild(document.createTextNode(s));
+            return d.innerHTML;
+        }
+
+        // Dashboard: KPIs + threads
+        if (document.getElementById('kpi-grid')) {
+            startPolling('dashboard', 10000, function(data) {
+                var el;
+                el = document.getElementById('kpi-msgs'); if (el) el.textContent = data.totalMsgs;
+                el = document.getElementById('kpi-orders'); if (el) el.textContent = data.totalOrders;
+                el = document.getElementById('kpi-pending'); if (el) el.textContent = data.pendingOrders;
+
+                var tbody = document.getElementById('threads-tbody');
+                if (tbody && data.threads) {
+                    var html = '';
+                    data.threads.forEach(function(t) {
+                        html += '<tr>'
+                            + '<td style="font-family:monospace; font-size:13px;">' + escapeHtml(t.wa_id) + '</td>'
+                            + '<td style="color:var(--text-3);">' + escapeHtml(t.last_msg) + '</td>'
+                            + '<td><div style="display:flex; gap:6px;">'
+                            + '<a href="admin.php<?php echo $viewQs; ?>chat=' + encodeURIComponent(t.wa_id) + '" class="btn btn-secondary btn-sm">Ver Chat</a>'
+                            + '</div></td></tr>';
+                    });
+                    tbody.innerHTML = html;
+                }
+            });
+        }
+
+        // Pedidos
+        if (document.getElementById('orders-tbody')) {
+            var statusBadge = {'pagado':'badge-success','entregado':'badge-success','nuevo':'badge-warning','en_verificacion':'badge-warning','en_camino':'badge-info','cancelado':'badge-danger'};
+            var statusLabel = {'nuevo':'Nuevo','en_verificacion':'Verificación','aprobado':'Aprobado','pagado':'Pagado','en_camino':'En Camino','entregado':'Entregado','cancelado':'Cancelado'};
+
+            startPolling('orders', 8000, function(data) {
+                var tbody = document.getElementById('orders-tbody');
+                if (!tbody || !data.orders) return;
+                var html = '';
+                data.orders.forEach(function(o) {
+                    var badge = statusBadge[o.status] || 'badge-info';
+                    var label = statusLabel[o.status] || o.status;
+                    var items = '';
+                    try { var arr = JSON.parse(o.items || '[]'); arr.forEach(function(i){ items += (i.qty||1) + ' x ' + i.name + '<br>'; }); } catch(e){}
+                    html += '<tr>'
+                        + '<td style="font-family:monospace; color:var(--accent); font-weight:700;">' + escapeHtml(o.order_number) + '</td>'
+                        + '<td style="font-size:12px;">' + escapeHtml(o.wa_id) + '<br>' + escapeHtml(o.contact_phone||'') + '</td>'
+                        + '<td style="font-size:12px;">' + items + (o.delivery_zone ? 'Zona: ' + escapeHtml(o.delivery_zone) : '') + '</td>'
+                        + '<td style="font-size:12px;">' + escapeHtml(o.delivery_address||'') + '</td>'
+                        + '<td style="font-weight:700;">$' + parseFloat(o.total||0).toFixed(2) + '</td>'
+                        + '<td><span class="badge ' + badge + '">' + label + '</span></td>'
+                        + '<td style="font-size:11px;"></td>'
+                        + '</tr>';
+                });
+                tbody.innerHTML = html;
+            });
+        }
+
+        // Chat
+        if (document.getElementById('chatContainer')) {
+            var chatWaId = '<?php echo addslashes($_GET["chat"] ?? ""); ?>';
+            if (chatWaId) {
+                startPolling('chat', 3000, function(data) {
+                    var container = document.getElementById('chatContainer');
+                    if (!container || !data.messages) return;
+                    var existing = container.children.length;
+                    if (data.messages.length <= existing) return;
+
+                    for (var i = existing; i < data.messages.length; i++) {
+                        var m = data.messages[i];
+                        var isMedia = (m.content && (m.content.indexOf('[Imagen]') !== -1 || m.content.indexOf('[Audio') !== -1));
+                        var div = document.createElement('div');
+                        div.className = 'chat-msg ' + m.role;
+                        var bubble = '<div class="chat-bubble' + (isMedia ? ' media' : '') + '">';
+                        if (m.image_data) bubble += '<img src="' + m.image_data + '" style="max-width:240px; max-height:240px; border-radius:10px; display:block; cursor:pointer; margin-bottom:6px;" onclick="openImage(this.src)">';
+                        if (isMedia) bubble += '<span style="opacity:0.6; font-size:11px; display:block; margin-bottom:4px;">📎 Multimedia</span>';
+                        bubble += escapeHtml(m.content || '');
+                        bubble += '</div>';
+                        var time = m.created_at ? new Date(m.created_at).toLocaleTimeString('es-VE', {hour:'2-digit', minute:'2-digit'}) : '';
+                        div.innerHTML = bubble + '<div class="chat-time">' + time + '</div>';
+                        container.appendChild(div);
+                    }
+                    container.scrollTop = container.scrollHeight;
+                });
+            }
+        }
     </script>
 
 </body>

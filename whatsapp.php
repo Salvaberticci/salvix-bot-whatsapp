@@ -16,7 +16,12 @@ function getWaToken() {
 }
 
 function getPhoneId($phoneNumberId = null) {
-    return $phoneNumberId ?: WA_PHONE_ID;
+    if ($phoneNumberId) return $phoneNumberId;
+    $tenant = $GLOBALS['TENANT'] ?? null;
+    if ($tenant && !empty($tenant['phone_number_id'])) {
+        return $tenant['phone_number_id'];
+    }
+    return WA_PHONE_ID;
 }
 
 /**
