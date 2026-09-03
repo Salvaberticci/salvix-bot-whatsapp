@@ -33,7 +33,7 @@ switch ($section) {
             'totalMsgs' => (int)$pdo->query("SELECT COUNT(*) FROM messages")->fetchColumn(),
             'totalOrders' => (int)$pdo->query("SELECT COUNT(*) FROM orders")->fetchColumn(),
             'pendingOrders' => (int)$pdo->query("SELECT COUNT(*) FROM orders WHERE status IN ('nuevo','aprobado','en_verificacion')")->fetchColumn(),
-            'threads' => $pdo->query("SELECT wa_id, MAX(created_at) as last_msg FROM messages GROUP BY wa_id ORDER BY last_msg DESC LIMIT 50")->fetchAll(PDO::FETCH_ASSOC),
+            'threads' => $pdo->query("SELECT m.wa_id, m.content as last_msg, m.created_at FROM messages m INNER JOIN (SELECT wa_id, MAX(id) as max_id FROM messages GROUP BY wa_id) latest ON m.id = latest.max_id ORDER BY m.created_at DESC LIMIT 50")->fetchAll(PDO::FETCH_ASSOC),
         ]);
         break;
 

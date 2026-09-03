@@ -2178,11 +2178,11 @@ if (!$tenant && $currentView === 'clientes') {
                     </div>
                     <?php 
                     $search = $_GET['search'] ?? '';
-                    $query = "SELECT wa_id, MAX(created_at) as last_msg FROM messages ";
+                    $query = "SELECT m.wa_id, m.content as last_msg, m.created_at FROM messages m INNER JOIN (SELECT wa_id, MAX(id) as max_id FROM messages GROUP BY wa_id) latest ON m.id = latest.max_id";
                     if ($search) {
-                        $query .= " WHERE wa_id LIKE :search ";
+                        $query .= " WHERE m.wa_id LIKE :search ";
                     }
-                    $query .= " GROUP BY wa_id ORDER BY last_msg DESC LIMIT 50";
+                    $query .= " ORDER BY m.created_at DESC LIMIT 50";
                     
                     $stmt = $pdo->prepare($query);
                     if ($search) {
@@ -2195,13 +2195,16 @@ if (!$tenant && $currentView === 'clientes') {
                         <div style="overflow-x:auto;">
                             <table>
                                 <thead>
-                                    <tr><th>WA ID</th><th>Última Actividad</th><th>Acción</th></tr>
+                                    <tr><th>WA ID</th><th>Último Mensaje</th><th>Acción</th></tr>
                                 </thead>
                                 <tbody id="threads-tbody">
                                     <?php foreach ($threads as $t): ?>
                                     <tr>
                                         <td style="font-family:monospace; font-size:13px;"><?php echo $t['wa_id']; ?></td>
-                                        <td style="color:var(--text-3);"><?php echo $t['last_msg']; ?></td>
+                                        <td>
+                                            <div style="max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-2);"><?php echo htmlspecialchars(mb_substr($t['last_msg'], 0, 60)); ?></div>
+                                            <div style="font-size:11px; color:var(--text-3);"><?php echo date('d M H:i', strtotime($t['created_at'])); ?></div>
+                                        </td>
                                         <td>
                                             <div style="display:flex; gap:6px;">
                                                 <a href="admin.php<?php echo $viewQs; ?>chat=<?php echo $t['wa_id']; ?>" class="btn btn-secondary btn-sm">Ver Chat</a>
@@ -2395,9 +2398,15 @@ if (!$tenant && $currentView === 'clientes') {
                 if (tbody && data.threads) {
                     var html = '';
                     data.threads.forEach(function(t) {
+                        var preview = t.last_msg.length > 60 ? t.last_msg.substring(0, 60) + '...' : t.last_msg;
+                        var d = new Date(t.created_at.replace(' ', 'T'));
+                        var month = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][d.getMonth()];
+                        var hour = d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+                        var ts = d.getDate() + ' ' + month + ' ' + hour;
                         html += '<tr>'
                             + '<td style="font-family:monospace; font-size:13px;">' + escapeHtml(t.wa_id) + '</td>'
-                            + '<td style="color:var(--text-3);">' + escapeHtml(t.last_msg) + '</td>'
+                            + '<td><div style="max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-2);">' + escapeHtml(preview) + '</div>'
+                            + '<div style="font-size:11px; color:var(--text-3);">' + ts + '</div></td>'
                             + '<td><div style="display:flex; gap:6px;">'
                             + '<a href="admin.php<?php echo $viewQs; ?>chat=' + encodeURIComponent(t.wa_id) + '" class="btn btn-secondary btn-sm">Ver Chat</a>'
                             + '</div></td></tr>';
