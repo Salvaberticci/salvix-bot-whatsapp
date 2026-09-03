@@ -188,10 +188,15 @@ function getAvailableProducts($pdo) {
 function matchesProduct($itemName, $products) {
     $n = normalizeName($itemName);
     if ($n === '') return false;
+    $matches = [];
     foreach ($products as $p) {
         $pn = normalizeName($p);
-        if ($pn !== '' && (strpos($n, $pn) !== false || strpos($pn, $n) !== false)) return true;
+        if ($pn !== '' && (strpos($n, $pn) !== false || strpos($pn, $n) !== false)) {
+            $matches[] = $p;
+        }
     }
+    if (count($matches) === 1) return true;
+    if (count($matches) > 1) return ['ambiguous' => true, 'options' => $matches];
     return false;
 }
 
@@ -250,6 +255,8 @@ Reglas:
 - Si el cliente pide algo que NO está en la lista de disponibles, is_order=false y items vacío.
 - Si no hay pedido concreto, is_order=false y items vacío.
 - No inventes platos: usa solo lo que aparece en la conversación y exista en la lista de disponibles.
+- CRÍTICO: Si el cliente dice un nombre genérico (ej: perro, arepa, pastelito) que coincide con VARIOS productos de la lista, NO asumas cuál quiere. En ese caso, is_order=false y items vacío (el bot se encargará de preguntar al cliente cuál opción prefiere).
+- Solo marca is_order=true cuando el cliente haya especificado el producto EXACTO que aparece en la lista de disponibles.
 - La dirección debe incluir referencias, edificio, piso, zona, etc. tal como la escriba el cliente.
 - Extrae SOLO el pedido actual del cliente; no repitas pedidos ya registrados antes.
 Productos disponibles:
@@ -315,6 +322,7 @@ Reglas:
 - items debe ser la LISTA COMPLETA del pedido DESPUÉS de aplicar el cambio (agrega, quita o sustituye según el mensaje).
 - Si el cliente no cambió productos, items debe ser el mismo pedido actual.
 - No inventes platos: usa solo lo que aparece en el pedido actual o en el mensaje.
+- CRÍTICO: Si el cliente dice un nombre genérico que coincide con VARIOS productos de la lista, NO asumas cuál quiere. En ese caso, type=not_order (el bot se encargará de preguntar al cliente cuál opción prefiere).
 - Si el cliente agrega un producto que NO está en la lista de disponibles, no lo agregues: mantén los items actuales.
 - Si corrige la dirección pero no los productos, mantén los items actuales y pon la dirección nueva.
 Productos disponibles:
@@ -682,9 +690,27 @@ function processOrderFlow($pdo, $wa_id, $text, $history) {
 
                 // Validar que todos los items existan en el inventario disponible
                 $unavailable = [];
+                $ambiguous = [];
                 foreach ($items as $it) {
                     $name = trim($it['name'] ?? '');
-                    if (!matchesProduct($name, $products)) $unavailable[] = $name;
+                    $match = matchesProduct($name, $products);
+                    if ($match === false) {
+                        $unavailable[] = $name;
+                    } elseif (is_array($match) && $match['ambiguous']) {
+                        $ambiguous[$name] = $match['options'];
+                    }
+                }
+                if (!empty($ambiguous)) {
+                    $msg = "Tenemos varias opciones para ";
+                    $first = true;
+                    foreach ($ambiguous as $name => $options) {
+                        if (!$first) $msg .= " y ";
+                        $msg .= "\"{$name}\": " . implode(', ', $options);
+                        $first = false;
+                    }
+                    $msg .= ". ¿Cuál te gustaría?";
+                    logger("ORDER: $wa_id pidió items ambigüos: " . json_encode($ambiguous, JSON_UNESCAPED_UNICODE));
+                    return $msg;
                 }
                 if (!empty($unavailable)) {
                     logger("ORDER: $wa_id pidió items no disponibles: " . implode(', ', $unavailable) . ". No se crea el pedido.");
