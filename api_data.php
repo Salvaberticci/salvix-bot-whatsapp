@@ -18,8 +18,8 @@ switch ($section) {
 
     case 'dashboard':
         $row = $pdo->query("SELECT GREATEST(
-            COALESCE((SELECT MAX(UNIX_TIMESTAMP(created_at)) FROM messages),0),
-            COALESCE((SELECT MAX(UNIX_TIMESTAMP(created_at)) FROM orders),0)
+            COALESCE((SELECT MAX(id) FROM messages),0),
+            COALESCE((SELECT MAX(id) FROM orders),0)
         )")->fetch();
         $latest = (int)($row[0] ?? 0);
 
@@ -38,7 +38,7 @@ switch ($section) {
         break;
 
     case 'orders':
-        $row = $pdo->query("SELECT COALESCE(MAX(UNIX_TIMESTAMP(created_at)),0) FROM orders")->fetch();
+        $row = $pdo->query("SELECT COALESCE(MAX(id),0) FROM orders")->fetch();
         $latest = (int)($row[0] ?? 0);
 
         if ($since > 0 && $latest <= $since) {
@@ -189,7 +189,7 @@ switch ($section) {
         $wa_id = $_GET['wa_id'] ?? '';
         if (!$wa_id) { http_response_code(400); exit; }
 
-        $stmt = $pdo->prepare("SELECT COALESCE(MAX(UNIX_TIMESTAMP(created_at)),0) FROM messages WHERE wa_id = ?");
+        $stmt = $pdo->prepare("SELECT COALESCE(MAX(id),0) FROM messages WHERE wa_id = ?");
         $stmt->execute([$wa_id]);
         $ts = (int)$stmt->fetchColumn();
 
