@@ -2405,29 +2405,22 @@ if (!$tenant && $currentView === 'clientes') {
 
         // Pedidos
         if (document.getElementById('orders-tbody')) {
-            var statusBadge = {'pagado':'badge-success','entregado':'badge-success','nuevo':'badge-warning','en_verificacion':'badge-warning','en_camino':'badge-info','cancelado':'badge-danger'};
-            var statusLabel = {'nuevo':'Nuevo','en_verificacion':'Verificación','aprobado':'Aprobado','pagado':'Pagado','en_camino':'En Camino','entregado':'Entregado','cancelado':'Cancelado'};
-
-            startPolling('orders', 8000, function(data) {
+            startPolling('orders', 10000, function(data) {
                 var tbody = document.getElementById('orders-tbody');
-                if (!tbody || !data.orders) return;
-                var html = '';
-                data.orders.forEach(function(o) {
-                    var badge = statusBadge[o.status] || 'badge-info';
-                    var label = statusLabel[o.status] || o.status;
-                    var items = '';
-                    try { var arr = JSON.parse(o.items || '[]'); arr.forEach(function(i){ items += (i.qty||1) + ' x ' + i.name + '<br>'; }); } catch(e){}
-                    html += '<tr>'
-                        + '<td style="font-family:monospace; color:var(--accent); font-weight:700;">' + escapeHtml(o.order_number) + '</td>'
-                        + '<td style="font-size:12px;">' + escapeHtml(o.wa_id) + '<br>' + escapeHtml(o.contact_phone||'') + '</td>'
-                        + '<td style="font-size:12px;">' + items + (o.delivery_zone ? 'Zona: ' + escapeHtml(o.delivery_zone) : '') + '</td>'
-                        + '<td style="font-size:12px;">' + escapeHtml(o.delivery_address||'') + '</td>'
-                        + '<td style="font-weight:700;">$' + parseFloat(o.total||0).toFixed(2) + '</td>'
-                        + '<td><span class="badge ' + badge + '">' + label + '</span></td>'
-                        + '<td style="font-size:11px;"></td>'
-                        + '</tr>';
+                if (!tbody || !data.html) return;
+                tbody.innerHTML = data.html;
+                // Re-attach delivery cost preview listeners
+                document.querySelectorAll('input[name=delivery_cost]').forEach(function(inp) {
+                    inp.removeEventListener('input', inp._handler);
+                    inp._handler = function() {
+                        var prev = document.getElementById('totPrev_' + inp.closest('form').querySelector('input[name=order_id]').value);
+                        if (!prev) return;
+                        var sub = parseFloat(prev.getAttribute('data-subtotal')) || 0;
+                        var d = parseFloat(inp.value) || 0;
+                        prev.textContent = 'Total: $' + (sub + d).toFixed(2).replace('.', ',');
+                    };
+                    inp.addEventListener('input', inp._handler);
                 });
-                tbody.innerHTML = html;
             });
         }
 
