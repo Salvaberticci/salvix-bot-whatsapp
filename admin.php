@@ -2355,13 +2355,14 @@ if (!$tenant && $currentView === 'clientes') {
         });
 
         // ===== REAL-TIME POLLING =====
-        function startPolling(section, interval, callback) {
+        function startPolling(section, interval, callback, extra) {
+            extra = extra || '';
             var since = 0;
             var busy = false;
             function poll() {
                 if (busy) return;
                 busy = true;
-                fetch('api_data.php?section=' + section + '&since=' + since)
+                fetch('api_data.php?section=' + section + '&since=' + since + extra)
                     .then(function(res) {
                         busy = false;
                         if (res.status === 304) return null;
@@ -2462,7 +2463,7 @@ if (!$tenant && $currentView === 'clientes') {
                         container.appendChild(div);
                     }
                     container.scrollTop = container.scrollHeight;
-                });
+                }, '&wa_id=' + encodeURIComponent(chatWaId));
             }
         }
     </script>
