@@ -1973,6 +1973,9 @@ if (!$tenant && $currentView === 'clientes') {
                                                     <?php endif; ?>
                                                 <?php endif; ?>
                                                 <?php if(in_array($o['status'], ['aprobado','en_verificacion'])): ?>
+                                                    <?php if(empty($o['payment_image']) && empty(trim($o['payment_ref'] ?? ''))): ?>
+                                                        <div style="font-size:11px; color:#f59e0b; margin-bottom:4px;">⚠️ Sin comprobante — espera la imagen del cliente</div>
+                                                    <?php endif; ?>
                                                     <form method="POST" style="display:inline-flex; gap:4px; align-items:center;" onsubmit="return confirm('¿Confirmar el pago del pedido <?php echo htmlspecialchars($o['order_number']); ?>?');">
                                                         <input type="hidden" name="order_id" value="<?php echo $o['id']; ?>">
                                                         <select name="payment_method" required style="padding:6px 8px; border-radius:8px; background:var(--surface-3); border:1px solid var(--border); color:var(--text); font-size:12px; font-family:'Inter',sans-serif;">
@@ -1983,6 +1986,7 @@ if (!$tenant && $currentView === 'clientes') {
                                                         <button type="submit" name="confirm_paid" class="btn btn-primary btn-sm">Confirmar Pago</button>
                                                     </form>
                                                     <?php if($o['status'] === 'en_verificacion' && !empty($o['payment_image'])): ?>
+                                                        <div style="font-size:11px; color:#22c55e; margin-bottom:4px;">✅ Comprobante recibido</div>
                                                         <form method="POST" style="display:inline;" onsubmit="return confirm('¿Rechazar el comprobante del pedido <?php echo htmlspecialchars($o['order_number']); ?>? El pedido volverá a aprobado y se notificará al cliente.');">
                                                             <input type="hidden" name="order_id" value="<?php echo $o['id']; ?>">
                                                             <button type="submit" name="reject_payment" class="btn btn-danger btn-sm">Rechazar Comprobante</button>

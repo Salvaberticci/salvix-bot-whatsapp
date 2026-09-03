@@ -555,7 +555,7 @@ function processOrderFlow($pdo, $wa_id, $text, $history) {
                 $stmt = $pdo->prepare("UPDATE orders SET status='en_verificacion', payment_ref=? WHERE id=?");
                 $stmt->execute([$ref, $open['id']]);
                 logger("ORDER: pago en verificación para {$open['order_number']} de $wa_id. Ref: $ref");
-                return "El cliente acaba de enviar un mensaje de pago para el pedido {$open['order_number']} (referencia: $ref) y el pedido pasó a verificación. Agradece el mensaje con naturalidad y dile que lo estás revisando y le confirmas en un momentico.";
+                return "El cliente acaba de enviar un mensaje de pago por texto para el pedido {$open['order_number']} (referencia: $ref). IMPORTANTE: NO envió imagen ni comprobante, solo texto. El pedido pasó a verificación. Pídele amablemente que te mande la captura o foto del comprobante de pago para poder confirmarlo. Ejemplo: '¡Gracias! Para confirmarlo, ¿me mandas la captura del comprobante por favor?'.";
             }
         }
 
@@ -847,6 +847,9 @@ function confirmOrderPaid($pdo, $orderId, $method) {
     }
     if (!in_array($order['status'], ['aprobado', 'en_verificacion'])) {
         throw new Exception("El pedido debe estar aprobado o en verificación para confirmar el pago.");
+    }
+    if (empty($order['payment_image']) && empty(trim($order['payment_ref'] ?? ''))) {
+        throw new Exception("No hay comprobante de pago registrado. Espera a que el cliente envíe la imagen del comprobante antes de confirmar.");
     }
 
     $stmt = $pdo->prepare("UPDATE orders SET status='pagado', payment_method=? WHERE id=?");
